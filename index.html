@@ -32,6 +32,7 @@
       <a href="#map">Map</a>
       <a href="#info">Trip Info</a>
     </nav>
+    <a class="near-btn" href="#nearby" aria-label="What's nearby?"><span data-icon="compass"></span><span class="near-txt">What’s nearby?</span></a>
     <button class="fav-btn" id="favBtn" aria-label="Open favorites"><span data-icon="heart"></span><b id="favCount">0</b></button>
     <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="nav"><span data-icon="menu"></span></button>
   </header>
@@ -121,6 +122,16 @@
       <div class="wrap" id="mapwrap"></div>
     </section>
 
+    <!-- NEARBY -->
+    <section class="view" id="view-nearby" data-view="nearby" hidden>
+      <div class="section-head wrap">
+        <p class="eyebrow">Finished early?</p>
+        <h2>What’s Nearby</h2>
+        <p class="lede">Food, breweries, attractions and events sorted by distance from where you are right now. Your location is used only on this page and is never saved.</p>
+      </div>
+      <div class="wrap" id="nearby"></div>
+    </section>
+
     <!-- INFO -->
     <section class="view" id="view-info" data-view="info" hidden>
       <div class="section-head wrap">
@@ -146,6 +157,7 @@
     <a href="#itinerary" data-today><span data-icon="calendar"></span>Today</a>
     <a href="#eat"><span data-icon="fork"></span>Eat</a>
     <a href="#breweries"><span data-icon="beer"></span>Beer</a>
+    <a href="#nearby"><span data-icon="compass"></span>Nearby</a>
     <a href="#map"><span data-icon="pin"></span>Map</a>
     <button type="button" id="quickFav"><span data-icon="heart"></span>Saved</button>
   </nav>
