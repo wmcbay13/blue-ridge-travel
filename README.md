@@ -4,6 +4,7 @@ Personal trip hub for a Blue Ridge, Georgia getaway: **October 8–11, 2026**.
 
 A static, mobile-first site with no build step. It covers:
 
+- **Trip Pulse** in the hero: a countdown before the trip that automatically becomes a live command center during it (day, weather, what's happening now or next with time-until and drive time from the cabin, the day's progress, and quick links), then a recap afterward. Preview it any time with `?now=2026-10-09T09:40` (Eastern time).
 - **Home dashboard**: countdown, live trip forecast (Open-Meteo), today's plan, reservations to make, saved places and quick links
 - **4-day itinerary** with **Plan A** (mountain days) and **Plan B** (a full rainy-weather version with indoor and covered alternatives). When the forecast shows a ≥ 60% chance of rain, the site suggests Plan B.
 - **Check-off**: mark each activity **Upcoming**, **Done** or **Skip**. Done and skipped items fade and collapse, and each day shows progress such as “Day 2 — 3 of 6 activities completed”, plus what's left and what's up next. Plan A and Plan B are tracked separately.
