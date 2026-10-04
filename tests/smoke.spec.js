@@ -158,3 +158,61 @@ test('broken images fall back to a styled placeholder', async ({ page }) => {
   await page.goto('/#explore');
   await expect(page.locator('.card[data-id="fall-branch-falls"] .ph')).toHaveClass(/ph-fail/);
 });
+
+test('itinerary check-off: done/skip collapse, progress counts, persistence', async ({ page }) => {
+  await page.goto('/#itinerary');
+  await page.locator('[data-day="2"]').click();
+  const total = await page.locator('.timeline .act').count();
+  await expect(page.locator('.day-progress h4')).toHaveText(`Day 2 — 0 of ${total} activities completed`);
+  await expect(page.locator('.act.is-next')).toHaveCount(1);
+
+  // Mark the first two done and skip the third
+  const acts = page.locator('.timeline .act');
+  await acts.nth(0).locator('[data-status="done"]').click();
+  await acts.nth(1).locator('[data-status="done"]').click();
+  await acts.nth(2).locator('[data-status="skip"]').click();
+
+  await expect(page.locator('.day-progress h4')).toHaveText(`Day 2 — 2 of ${total - 1} activities completed`);
+  await expect(page.locator('.dp-meta')).toContainText(`${total - 3} remaining · 1 skipped`);
+  await expect(page.locator('[data-day="2"] .tab-prog')).toHaveText(`2/${total - 1}`);
+
+  // Done items collapse (photo/description hidden) and fade; details can be expanded
+  const doneCard = page.locator('.act.is-done').first();
+  await expect(doneCard.locator('.act-ph')).toBeHidden();
+  await expect(doneCard.locator('.act-summary')).toBeVisible();
+  await doneCard.locator('[data-expand]').click();
+  await expect(doneCard.locator('.facts')).toBeVisible();
+  // "Up next" moves to the first remaining item
+  await expect(page.locator('.act.is-next')).toHaveClass(/is-upcoming/);
+
+  // Persists after reload and is shown on the dashboard
+  await page.reload();
+  await expect(page.locator('.act.is-done')).toHaveCount(2);
+  await expect(page.locator('.act.is-skip')).toHaveCount(1);
+
+  // Hide done & skipped
+  await page.locator('#hideClosed').check();
+  await expect(page.locator('.timeline .act')).toHaveCount(total - 3);
+  await page.locator('#hideClosed').uncheck();
+
+  // Undo one, then plan B tracks separately
+  await page.locator('.act.is-skip [data-status="upcoming"]').click();
+  await expect(page.locator('.act.is-skip')).toHaveCount(0);
+  await page.locator('.plan-toggle [data-plan="B"]').click();
+  await expect(page.locator('.day-progress h4')).toContainText('Day 2 — 0 of');
+  await page.locator('.plan-toggle [data-plan="A"]').click();
+
+  // Reset day clears everything
+  await page.locator('[data-reset-day]').click();
+  await expect(page.locator('.act.is-done')).toHaveCount(0);
+  await expect(page.locator('.day-progress h4')).toHaveText(`Day 2 — 0 of ${total} activities completed`);
+});
+
+test('dashboard shows day progress', async ({ page }) => {
+  await page.goto('/#itinerary');
+  await page.locator('[data-day="1"]').click();
+  await page.locator('.timeline .act').first().locator('[data-status="done"]').click();
+  await page.goto('/#home');
+  await expect(page.locator('.mini-prog')).toContainText('1 of');
+  await expect(page.locator('.mini-tl li.is-done')).toHaveCount(1);
+});
