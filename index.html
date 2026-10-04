@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Blue Ridge Getaway</title>
+  <meta name="description" content="Our Blue Ridge, Georgia trip hub for October 8–11, 2026: itinerary, rainy-day Plan B, food, breweries, events and maps.">
+  <meta name="theme-color" content="#1f2a22">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f2a22'/%3E%3Cpath d='M6 50 24 22l9 13 7-9 18 24z' fill='%23d9a13b'/%3E%3Cpath d='M6 50 24 30l8 10 8-6 18 16z' fill='%23c8692a'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650;9..144,800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="preload" as="image" href="img/hero.webp">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar" id="topbar">
+    <a class="brand" href="#home" aria-label="Blue Ridge Getaway home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M4 50 24 18l9 14 7-9 20 27z" fill="var(--amber)"/><path d="M4 50 24 28l8 11 8-6 20 17z" fill="var(--orange)"/></svg>
+      <span>Blue Ridge <em>Getaway</em></span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="#home">Home</a>
+      <a href="#itinerary">Itinerary</a>
+      <a href="#explore">Explore</a>
+      <a href="#eat">Eat &amp; Drink</a>
+      <a href="#breweries">Breweries</a>
+      <a href="#events">Events</a>
+      <a href="#map">Map</a>
+      <a href="#info">Trip Info</a>
+    </nav>
+    <button class="fav-btn" id="favBtn" aria-label="Open favorites"><span data-icon="heart"></span><b id="favCount">0</b></button>
+    <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="nav"><span data-icon="menu"></span></button>
+  </header>
+
+  <main id="main">
+    <!-- HOME -->
+    <section class="view" id="view-home" data-view="home">
+      <div class="hero" id="hero">
+        <div class="hero-photo" style="background-image:url(img/hero.webp)"></div>
+        <div class="hero-sky"></div>
+        <div class="clouds" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="leaves" id="leaves" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <p class="eyebrow">Blue Ridge, Georgia · 2026</p>
+          <h1>Blue Ridge Mountain Getaway</h1>
+          <p class="hero-dates">October 8–11</p>
+          <p class="hero-tag"><em>Four days of mountains, trails, great food, craft beer &amp; exploring North Georgia.</em></p>
+          <div class="countdown" id="countdown" aria-live="polite"></div>
+          <div class="hero-cta">
+            <a class="btn btn-amber" href="#itinerary">See the itinerary</a>
+            <a class="btn btn-ghost" href="#explore">Explore nearby</a>
+          </div>
+        </div>
+        <div class="hero-ridges" id="heroRidges"></div>
+      </div>
+      <div class="wrap dash" id="dashboard"></div>
+    </section>
+
+    <!-- ITINERARY -->
+    <section class="view" id="view-itinerary" data-view="itinerary" hidden>
+      <div class="section-head wrap">
+        <p class="eyebrow">Day by day</p>
+        <h2>The 4-Day Itinerary</h2>
+        <p class="lede">Two complete plans: <b>Plan A</b> for blue-sky mountain days and <b>Plan B</b>, a rainy-weather version with indoor and covered alternatives. Tap the heart on anything to save it.</p>
+      </div>
+      <div class="wrap" id="itinerary"></div>
+    </section>
+
+    <!-- EXPLORE -->
+    <section class="view" id="view-explore" data-view="explore" hidden>
+      <div class="section-head wrap">
+        <p class="eyebrow">Within ~60 minutes</p>
+        <h2>Explore Blue Ridge</h2>
+        <p class="lede">Waterfalls, trails, orchards, small towns and rainy-day finds around Fannin County and beyond.</p>
+      </div>
+      <div class="wrap" id="explore"></div>
+      <div class="wrap" id="drives"></div>
+    </section>
+
+    <!-- EAT -->
+    <section class="view" id="view-eat" data-view="eat" hidden>
+      <div class="section-head wrap">
+        <p class="eyebrow">Local, not chains</p>
+        <h2>Eat &amp; Drink</h2>
+        <p class="lede">Where to eat from first coffee to final steak dinner. October weekends are busy — reserve dinner where it says so.</p>
+      </div>
+      <div class="wrap" id="eat"></div>
+    </section>
+
+    <!-- BREWERIES -->
+    <section class="view" id="view-breweries" data-view="breweries" hidden>
+      <div class="section-head wrap">
+        <p class="eyebrow">Taps, patios &amp; cider</p>
+        <h2>Blue Ridge Brewery Trail</h2>
+        <p class="lede">Taprooms in town and across the state line in Copperhill, TN — plus hard cider at Mercier.</p>
+      </div>
+      <div class="wrap" id="breweries"></div>
+    </section>
+
+    <!-- EVENTS -->
+    <section class="view" id="view-events" data-view="events" hidden>
+      <div class="section-head wrap">
+        <p class="eyebrow">October 8–11, 2026</p>
+        <h2>Local Events</h2>
+        <p class="lede">Festivals and happenings during our stay. <b>Confirmed</b> means dates were found on the organizer’s official page; <b>Verify Before Trip</b> means check closer to the date.</p>
+      </div>
+      <div class="wrap" id="events"></div>
+    </section>
+
+    <!-- MAP -->
+    <section class="view" id="view-map" data-view="map" hidden>
+      <div class="section-head wrap">
+        <p class="eyebrow">Everything, pinned</p>
+        <h2>Trip Map</h2>
+        <p class="lede">Tap a pin for photo, details and directions. Pins are approximate — directions use street addresses.</p>
+      </div>
+      <div class="wrap" id="mapwrap"></div>
+    </section>
+
+    <!-- INFO -->
+    <section class="view" id="view-info" data-view="info" hidden>
+      <div class="section-head wrap">
+        <p class="eyebrow">Be ready</p>
+        <h2>Trip Info</h2>
+        <p class="lede">Weather, packing, practical tips, and your private home-base setting.</p>
+      </div>
+      <div class="wrap" id="info"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div id="footRidges"></div>
+    <div class="wrap foot-inner">
+      <p><b>Blue Ridge Mountain Getaway</b> · Oct 8–11, 2026 · Researched Oct 4, 2026. Hours and prices change — anything tagged <span class="pill pill-verify">Verify Before Trip</span> deserves a quick call.</p>
+      <p>Map data © OpenStreetMap contributors · Weather by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> · Photos from Wikimedia Commons (<a href="#info" data-goto="credits">credits</a>); food &amp; brewery photos are representative, not of the specific venue.</p>
+      <p>Please drink responsibly — designate a driver or use a rideshare.</p>
+    </div>
+  </footer>
+
+  <!-- mobile quick bar -->
+  <nav class="quickbar" aria-label="Quick actions">
+    <a href="#itinerary" data-today><span data-icon="calendar"></span>Today</a>
+    <a href="#eat"><span data-icon="fork"></span>Eat</a>
+    <a href="#breweries"><span data-icon="beer"></span>Beer</a>
+    <a href="#map"><span data-icon="pin"></span>Map</a>
+    <button type="button" id="quickFav"><span data-icon="heart"></span>Saved</button>
+  </nav>
+
+  <!-- favorites drawer -->
+  <div class="drawer" id="drawer" hidden>
+    <div class="drawer-scrim" data-close></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <header>
+        <h2 id="drawerTitle">Favorites &amp; Planner</h2>
+        <button class="icon-btn" data-close aria-label="Close favorites"><span data-icon="x"></span></button>
+      </header>
+      <p class="muted small">Saved on this device. Use “Add to day” to drop a favorite into the itinerary.</p>
+      <div class="chips" id="favFilters"></div>
+      <div id="favList"></div>
+    </aside>
+  </div>
+
+  <!-- add-to-day dialog -->
+  <dialog id="addDlg" class="dlg">
+    <form method="dialog">
+      <h3 id="addTitle">Add to itinerary</h3>
+      <label>Day
+        <select id="addDay"></select>
+      </label>
+      <label>Time (optional)
+        <input id="addTime" type="text" placeholder="e.g. 2:30 PM" maxlength="20">
+      </label>
+      <menu>
+        <button value="cancel" class="btn btn-ghost-dark">Cancel</button>
+        <button value="ok" class="btn btn-amber" id="addOk">Add</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

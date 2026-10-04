@@ -1,0 +1,12 @@
+{
+  "name": "blue-ridge-travel",
+  "private": true,
+  "description": "Blue Ridge, GA trip hub (static site). Dev deps are only for smoke tests.",
+  "scripts": {
+    "serve": "python3 -m http.server 8765",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0"
+  }
+}
