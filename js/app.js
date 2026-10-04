@@ -4,7 +4,7 @@ import { EVENTS } from '../data/events.js';
 import { DRIVES } from '../data/drives.js';
 import { WEATHER_NORMALS, PACKING, TIPS, BREWERY_TRAILS } from '../data/info.js';
 import { icon, ridges, TOPO } from './icons.js';
-import { load, save, favs, added } from './store.js';
+import { load, save, favs, added, progress, planKey } from './store.js';
 import { getForecast, describe, RAIN_THRESHOLD } from './weather.js';
 import { baseMap, markerIcon, routeMap, hasLeaflet } from './map.js';
 
@@ -215,19 +215,49 @@ function resolveItem(it) {
   };
 }
 
-function activityCard(it, idx, { removable = false, day } = {}) {
+const STATUS_UI = [['upcoming', 'Upcoming', 'clock'], ['done', 'Done', 'check'], ['skip', 'Skip', 'x']];
+
+function statusControl(key, status, title) {
+  return `<div class="status-ctl" role="group" aria-label="Status for ${esc(title)}">${STATUS_UI.map(([v, label, ic]) =>
+    `<button type="button" class="st-${v} ${status === v ? 'on' : ''}" data-status="${v}" data-key="${esc(key)}" aria-pressed="${status === v}">${icon(ic)}<span>${label}</span></button>`).join('')}</div>`;
+}
+
+// All of a day's items (plan + ones added from favorites) with their check-off keys
+function dayItems(day, p = plan()) {
+  const planned = (p === 'B' ? PLAN_B : PLAN_A)[day].map((it, i) => ({ it, idx: i, key: planKey(p, day, it.title) }));
+  const extra = added.forDay(day).map((a, i) => ({
+    it: { ...a, place: ALL.has(a.id) && !EVENTS.find(e => e.id === a.id) ? a.id : undefined, event: EVENTS.find(e => e.id === a.id) ? a.id : undefined, priority: 'optional' },
+    idx: i, key: added.key(day, a, i), removable: true,
+  }));
+  return [...planned, ...extra].map(x => ({ ...x, status: progress.get(x.key) }));
+}
+
+// Skipped items drop out of the plan, so "of N" counts only done + upcoming
+function dayStats(day, p = plan()) {
+  const items = dayItems(day, p);
+  const done = items.filter(x => x.status === 'done').length;
+  const skip = items.filter(x => x.status === 'skip').length;
+  const total = items.length - skip;
+  const next = items.find(x => x.status === 'upcoming');
+  return { items, done, skip, total, remaining: total - done, next };
+}
+
+function activityCard(it, idx, { removable = false, day, key, status = 'upcoming', next = false } = {}) {
   const r = resolveItem(it);
   const [plabel, pcls] = PRIORITY[it.priority] || PRIORITY.optional;
   const isHome = r.id === 'home';
   const loc = isHome ? r.name : (r.addr ? r.addr.split(',').slice(0, 2).join(',') : r.name || '');
   const driveTxt = it.drive ? 'See route' : driveLabel(r);
-  return `<li class="act ${it.priority || ''}">
-    <div class="act-time"><span>${esc(it.time)}</span></div>
+  const closed = status !== 'upcoming';
+  return `<li class="act ${it.priority || ''} is-${status} ${next ? 'is-next' : ''}" data-key="${esc(key)}">
+    <div class="act-time"><span>${status === 'done' ? icon('check') : status === 'skip' ? icon('x') : ''}${esc(it.time)}</span></div>
     <article class="act-card">
       ${photo(r.img, r.title, 'act-ph')}
       <div class="act-body">
+        ${closed ? `<button type="button" class="act-summary" data-expand aria-expanded="false">
+          <b>${esc(r.title)}</b><span class="pill ${status === 'done' ? 'pill-done' : 'pill-skip'}">${status === 'done' ? 'Done' : 'Skipped'}</span><small>Details</small></button>` : ''}
         <div class="act-top">
-          ${pill(plabel, pcls)}${verifyPill(r)}
+          ${next ? pill('Up next', 'pill-next') : ''}${pill(plabel, pcls)}${verifyPill(r)}
           ${r.id && !isHome && !String(r.id).startsWith('drive-') ? favButton(r.id) : ''}
         </div>
         <h3>${esc(r.title)}</h3>
@@ -242,6 +272,7 @@ function activityCard(it, idx, { removable = false, day } = {}) {
           ${!it.drive && !(isHome && r.unset) ? `<a class="btn-sm" href="${dirUrl(r)}" target="_blank" rel="noopener">${icon('nav')}Directions</a>` : ''}
           ${removable ? `<button class="btn-sm ghost" data-remove="${day}:${idx}">${icon('trash')}Remove</button>` : ''}
         </div>
+        ${statusControl(key, status, r.title)}
       </div>
     </article>
   </li>`;
@@ -263,8 +294,12 @@ function renderItinerary(activeDay) {
   const day = activeDay || Number(load('day', todayTripDay() || 1));
   save('day', day);
   const D = DAYS.find(d => d.n === day);
-  const items = planData()[day];
-  const extra = added.forDay(day).map(a => ({ ...a, place: ALL.has(a.id) && !EVENTS.find(e => e.id === a.id) ? a.id : undefined, event: EVENTS.find(e => e.id === a.id) ? a.id : undefined, priority: 'optional' }));
+  const st = dayStats(day);
+  const hideClosed = load('hideClosed', false);
+  const visible = st.items.filter(x => !hideClosed || x.status === 'upcoming');
+  const card = x => activityCard(x.it, x.idx, { removable: x.removable, day, key: x.key, status: x.status, next: x === st.next });
+  const planned = visible.filter(x => !x.removable), extra = visible.filter(x => x.removable);
+  const pct = st.total ? Math.round(st.done / st.total * 100) : 0;
   const w = wxForDay(D.date);
   const rainy = w && w.pop >= RAIN_THRESHOLD;
 
@@ -274,8 +309,8 @@ function renderItinerary(activeDay) {
       <button role="radio" aria-checked="${plan() === 'B'}" class="${plan() === 'B' ? 'on rain' : ''}" data-plan="B">${icon('umbrella')}<span><b>Plan B</b><small>Rainy-weather backup</small></span></button>
     </div>
     <div class="day-tabs" role="tablist">
-      ${DAYS.map(d => `<button role="tab" aria-selected="${d.n === day}" class="${d.n === day ? 'on' : ''}" data-day="${d.n}">
-        <small>Day ${d.n} · ${d.dow.slice(0, 3)}</small><b>${d.label}</b></button>`).join('')}
+      ${DAYS.map(d => { const ds = dayStats(d.n); const all = ds.total && ds.done === ds.total; return `<button role="tab" aria-selected="${d.n === day}" class="${d.n === day ? 'on' : ''} ${all ? 'complete' : ''}" data-day="${d.n}">
+        <small>Day ${d.n} · ${d.dow.slice(0, 3)}</small><b>${d.label}</b><em class="tab-prog">${all ? icon('check') + 'Done' : `${ds.done}/${ds.total}`}</em></button>`; }).join('')}
     </div>
     <div class="day-hero" style="--photo:${bg(D.img)}">
       <div>
@@ -287,17 +322,51 @@ function renderItinerary(activeDay) {
     </div>
     ${rainy && plan() === 'A' ? `<div class="alert rain">${icon('rain')}<div><b>${w.pop}% chance of rain on ${D.label}.</b> Plan B swaps in indoor &amp; covered alternatives.</div><button class="btn-sm" data-plan="B">Switch to Plan B</button></div>` : ''}
     ${plan() === 'B' ? `<div class="alert planb">${icon('umbrella')}<div><b>Plan B — rainy weather.</b> Indoor and covered picks for ${D.label}: museums, the enclosed scenic railway, tasting rooms, taprooms and cozy dinners. Outdoor options stay listed as <i>Optional</i> for breaks in the rain.</div></div>` : ''}
-    <ol class="timeline">${items.map((it, i) => activityCard(it, i)).join('')}</ol>
-    ${extra.length ? `<h4 class="added-h">${icon('heart')}Added from favorites</h4><ol class="timeline">${extra.map((it, i) => activityCard(it, i, { removable: true, day })).join('')}</ol>` : ''}
+    <div class="day-progress" aria-live="polite">
+      <div class="dp-head">
+        <h4>Day ${D.n} — ${st.done} of ${st.total} ${st.total === 1 ? 'activity' : 'activities'} completed</h4>
+        <span class="dp-pct">${pct}%</span>
+      </div>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${st.total}" aria-valuenow="${st.done}" aria-label="Day ${D.n} progress"><i style="width:${pct}%"></i></div>
+      <p class="dp-meta">${st.remaining ? `<b>${st.remaining}</b> remaining` : (st.total ? '<b>All done</b> — nice day!' : 'Nothing planned')}${st.skip ? ` · ${st.skip} skipped` : ''}${st.next ? ` · Up next: <b>${esc(st.next.it.time)}</b> ${esc(resolveItem(st.next.it).title)}` : ''}</p>
+      <div class="dp-actions">
+        <label class="switch"><input type="checkbox" id="hideClosed" ${hideClosed ? 'checked' : ''}><span>Hide done &amp; skipped</span></label>
+        ${st.done || st.skip ? `<button type="button" class="linkish" data-reset-day>${icon('trash')}Reset Day ${D.n}</button>` : ''}
+      </div>
+    </div>
+    <ol class="timeline">${planned.map(card).join('')}</ol>
+    ${hideClosed && st.items.length > visible.length ? `<p class="muted small center">${st.items.length - visible.length} done/skipped ${st.items.length - visible.length === 1 ? 'item' : 'items'} hidden</p>` : ''}
+    ${extra.length ? `<h4 class="added-h">${icon('heart')}Added from favorites</h4><ol class="timeline">${extra.map(card).join('')}</ol>` : ''}
     <p class="muted small center">Swipe between days above · ${plan() === 'A' ? 'Weather looking bad? Switch to Plan B.' : 'Sun came out? Switch back to Plan A.'}</p>`;
 
   el.onclick = e => {
-    const t = e.target.closest('[data-day],[data-plan],[data-remove]');
+    const t = e.target.closest('[data-day],[data-plan],[data-remove],[data-status],[data-expand],[data-reset-day]');
     if (!t) return;
+    if (t.dataset.status) {
+      progress.set(t.dataset.key, t.dataset.status);
+      renderItinerary(day);
+      renderDashboard();
+      if (t.dataset.status !== 'upcoming') toast(t.dataset.status === 'done' ? 'Marked done ✓' : 'Skipped');
+      return;
+    }
+    if ('expand' in t.dataset) {
+      const li = t.closest('.act');
+      const open = li.classList.toggle('expanded');
+      t.setAttribute('aria-expanded', open);
+      return;
+    }
+    if ('resetDay' in t.dataset) {
+      progress.clear(st.items.map(x => x.key));
+      renderItinerary(day);
+      renderDashboard();
+      toast(`Day ${day} reset`);
+      return;
+    }
     if (t.dataset.day) renderItinerary(Number(t.dataset.day));
     if (t.dataset.plan) { save('plan', t.dataset.plan); renderItinerary(day); renderDashboard(); toast(t.dataset.plan === 'B' ? 'Plan B (rainy day) active' : 'Plan A active'); }
     if (t.dataset.remove) { const [d, i] = t.dataset.remove.split(':'); added.remove(d, Number(i)); renderItinerary(day); renderDashboard(); }
   };
+  $('#hideClosed').onchange = e => { save('hideClosed', e.target.checked); renderItinerary(day); };
 }
 
 /* ───────────── dashboard ───────────── */
@@ -341,7 +410,9 @@ function renderDashboard() {
   const before = Date.now() < TRIP_START && !tDay;
   const showDay = tDay || 1;
   const D = DAYS.find(d => d.n === showDay);
-  const todays = planData()[showDay].slice(0, 5);
+  const tst = dayStats(showDay);
+  const todays = tst.items.filter(x => x.status !== 'skip').slice(0, 6);
+  const tpct = tst.total ? Math.round(tst.done / tst.total * 100) : 0;
   const saved = favs.all().map(lookup).filter(Boolean);
   const resv = [];
   Object.entries(planData()).forEach(([n, items]) => items.forEach(it => {
@@ -364,7 +435,8 @@ function renderDashboard() {
       <div class="panel today">
         <div class="panel-h"><h2>${before ? `Coming up: Day 1` : `Today · Day ${showDay}`}</h2><a href="#itinerary" data-goday="${showDay}">Full day ${icon('arrow')}</a></div>
         <p class="muted">${D.dow}, ${D.label} — <b>${esc(D.title)}</b>${plan() === 'B' ? ' · <span class="rain-tag">Plan B</span>' : ''}</p>
-        <ol class="mini-tl">${todays.map(it => { const r = resolveItem(it); return `<li><time>${esc(it.time)}</time><span>${esc(r.title)}</span>${it.priority === 'must' ? '<i>Must</i>' : ''}</li>`; }).join('')}</ol>
+        <div class="mini-prog"><span>${tst.done} of ${tst.total} completed · ${tst.remaining} remaining</span><div class="progress"><i style="width:${tpct}%"></i></div></div>
+        <ol class="mini-tl">${todays.map(({ it, status }) => { const r = resolveItem(it); return `<li class="is-${status}"><time>${esc(it.time)}</time><span>${status === 'done' ? icon('check', 'inline') + ' ' : ''}${esc(r.title)}</span>${status === 'done' ? '<i class="done">Done</i>' : it.priority === 'must' ? '<i>Must</i>' : ''}</li>`; }).join('')}</ol>
       </div>
 
       <div class="panel weather">
