@@ -9,6 +9,7 @@ A static, mobile-first site with no build step. It covers:
 - **4-day itinerary** with **Plan A** (mountain days) and **Plan B** (a full rainy-weather version with indoor and covered alternatives). When the forecast shows a ≥ 60% chance of rain, the site suggests Plan B.
 - **Check-off**: mark each activity **Upcoming**, **Done** or **Skip**. Done and skipped items fade and collapse, and each day shows progress such as “Day 2 — 3 of 6 activities completed”, plus what's left and what's up next. Plan A and Plan B are tracked separately.
 - **What's nearby?** sorts food, breweries, attractions and still-upcoming events by distance from your current location (or a place you pick), with category and radius filters, walk/drive estimates and one-tap directions. Location is used in memory only and never saved.
+- **Cabin time**: add downtime (reading, board games, trout fishing on the Toccoa, hot tub, campfire and more) or a home-cooked cabin meal to any day. Any restaurant stop can be swapped with **Cook at cabin instead**. Added items drop into the day in time order, and a **cabin grocery list** builds itself on the Trip Info page (copy it to text the shopper).
 - **Explore** (hikes, waterfalls, orchards, rainy-day picks) and **Scenic Drives** with route maps
 - **Eat & Drink**, the **Brewery Trail**, and **Local Events** for Oct 8–11 (each marked Confirmed or Verify Before Trip)
 - An interactive **trip map** (Leaflet + OpenStreetMap), **weather & packing**, and **trip tips**
