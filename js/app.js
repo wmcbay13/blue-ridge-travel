@@ -17,6 +17,16 @@ const bg = key => `url('${new URL(img(key), document.baseURI).href}')`;
 const TRIP_START = new Date('2026-10-08T15:00:00-04:00');
 const TRIP_END = new Date('2026-10-12T00:00:00-04:00');
 
+// Clock. `?now=2026-10-09T09:30` previews the site at that Blue Ridge (Eastern) time;
+// the preview keeps ticking forward from that moment.
+const PREVIEW_OFFSET = (() => {
+  const q = new URLSearchParams(location.search).get('now');
+  if (!q) return 0;
+  const t = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(q) ? q : q + '-04:00');
+  return Number.isFinite(t) ? t - Date.now() : 0;
+})();
+const now = () => Date.now() + PREVIEW_OFFSET;
+
 let credits = {};
 let forecast = { current: null, days: [] };
 
@@ -372,7 +382,7 @@ function renderItinerary(activeDay) {
 
 /* ───────────── dashboard ───────────── */
 
-function nyDateStr(d = new Date()) {
+function nyDateStr(d = new Date(now())) {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
@@ -384,15 +394,135 @@ function todayTripDay() {
 function renderCountdown() {
   const el = $('#countdown');
   const tick = () => {
-    const now = Date.now();
-    if (now >= TRIP_END) { el.innerHTML = '<p class="cd-msg">Hope the mountains were good to you. 🍂</p>'; return; }
-    if (now >= TRIP_START) { el.innerHTML = `<p class="cd-msg">We’re here! Day ${todayTripDay() || ''} of 4.</p>`; return; }
-    let s = Math.floor((TRIP_START - now) / 1000);
+    const t = now();
+    if (t >= TRIP_START) return renderPulse();
+    let s = Math.floor((TRIP_START - t) / 1000);
     const parts = [['Days', 86400], ['Hours', 3600], ['Min', 60], ['Sec', 1]].map(([l, n]) => { const v = Math.floor(s / n); s -= v * n; return [l, v]; });
     el.innerHTML = parts.map(([l, v]) => `<div><b>${String(v).padStart(2, '0')}</b><small>${l}</small></div>`).join('');
   };
   tick();
-  setInterval(tick, 1000);
+  // Countdown ticks every second; once the trip starts the pulse refreshes each minute.
+  setInterval(() => { if (now() < TRIP_START || new Date(now()).getSeconds() === 0) tick(); }, 1000);
+}
+
+/* ───────────── trip pulse (hero command center during the trip) ───────────── */
+
+// Minutes since midnight in Blue Ridge time
+function nyMinutes(t = now()) {
+  const [h, m] = new Date(t).toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false }).split(':').map(Number);
+  return (h % 24) * 60 + m;
+}
+
+function parseTime(str) {
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(str).trim());
+  if (!m) return null;
+  return (Number(m[1]) % 12 + (m[3].toUpperCase() === 'PM' ? 12 : 0)) * 60 + Number(m[2]);
+}
+
+function fmtIn(mins) {
+  if (mins <= 0) return 'starting now';
+  if (mins < 60) return `in ${mins} min`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return `in ${h} hr${m ? ` ${m} min` : ''}`;
+}
+
+const NOW_WINDOW = 45; // an activity counts as "Now" this long after its start time
+
+// Pick what the pulse should spotlight: the activity happening now, else the next one today.
+function pulseFocus(day) {
+  const st = dayStats(day);
+  const mins = nyMinutes();
+  const upcoming = st.items.filter(x => x.status === 'upcoming').map(x => ({ ...x, at: parseTime(x.it.time) }));
+  // most recently started activity still inside its window
+  const current = upcoming.filter(x => x.at != null && x.at <= mins && mins < x.at + NOW_WINDOW).pop();
+  const next = upcoming.find(x => x.at != null && x.at >= mins) || upcoming.find(x => x.at == null);
+  return { st, current, next: current ? upcoming.find(x => x !== current && x.at != null && x.at > mins) : next, mins };
+}
+
+function pulseDistance(r) {
+  if (r.lat == null || r.id === 'home') return '';
+  const h = homeBase();
+  const from = !h.unset && h.lat != null ? { ...h, label: 'cabin' } : { ...TOWN, label: 'downtown' };
+  const road = miles(from, r) * 1.3;
+  if (road < 0.1) return `Right by the ${from.label}`;
+  const t = travelEstimate(road);
+  if (t.mode === 'walk') return `${t.label} from ${from.label}`;
+  const m = Math.round(road / 30 * 60 + 3);
+  return `${m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ''}`} drive from ${from.label}`;
+}
+
+function pulseWeather(D) {
+  const today = wxForDay(D.date);
+  // "current" conditions are only meaningful for the real today (not a ?now= preview)
+  const cur = !PREVIEW_OFFSET && nyDateStr() === D.date ? forecast.current : null;
+  if (!cur && !today) return { line: `Typical: ${WEATHER_NORMALS.high} days, ${WEATHER_NORMALS.low} nights`, icon: 'leaf', wet: false };
+  const d = describe(cur ? cur.code : today.code);
+  const temp = cur ? `${cur.temp}°F` : `${today.hi}° / ${today.lo}°`;
+  return {
+    line: `${temp} · ${d.label}${today ? ` · ${today.pop ?? 0}% rain` : ''}`,
+    icon: d.icon,
+    wet: today && today.pop >= RAIN_THRESHOLD,
+  };
+}
+
+function renderPulse() {
+  const el = $('#countdown');
+  el.classList.add('pulse-mode');
+  document.body.classList.add('trip-live');
+  const t = now();
+
+  if (t >= TRIP_END) {
+    const done = DAYS.reduce((n, d) => n + dayStats(d.n).done, 0);
+    el.innerHTML = `<div class="pulse">
+      <p class="pulse-eyebrow">🍂 Trip complete</p>
+      <p class="pulse-big">Hope the mountains were good to you.</p>
+      <p class="pulse-line">${icon('check')}${done} activities checked off across 4 days</p>
+    </div>`;
+    return;
+  }
+
+  const day = todayTripDay() || 1;
+  const D = DAYS.find(d => d.n === day);
+  const { st, current, next, mins } = pulseFocus(day);
+  const wx = pulseWeather(D);
+  const focus = current || next;
+  const r = focus ? resolveItem(focus.it) : null;
+  const tomorrow = DAYS.find(d => d.n === day + 1);
+  const pct = st.total ? Math.round(st.done / st.total * 100) : 0;
+
+  let focusHtml;
+  if (focus) {
+    const label = current ? 'Now' : 'Next';
+    const when = current ? `since ${esc(focus.it.time)}` : focus.at != null ? `${esc(focus.it.time)} · ${fmtIn(focus.at - mins)}` : esc(focus.it.time);
+    const dist = pulseDistance(r);
+    focusHtml = `<p class="pulse-next"><span class="pulse-tag ${current ? 'now' : ''}">${label}</span><b>${esc(r.title)}</b></p>
+      <p class="pulse-line">${icon('clock')}${when}</p>
+      ${dist ? `<p class="pulse-line">${icon(/walk/.test(dist) ? 'boot' : 'car')}${esc(dist)}</p>` : ''}
+      ${current && next ? `<p class="pulse-line muted-line">Then: ${esc(resolveItem(next.it).title)} · ${esc(next.it.time)}</p>` : ''}`;
+  } else if (tomorrow) {
+    const first = (plan() === 'B' ? PLAN_B : PLAN_A)[tomorrow.n][0];
+    focusHtml = `<p class="pulse-next"><span class="pulse-tag">Done</span><b>That’s a wrap for today</b></p>
+      <p class="pulse-line">${icon('calendar')}Tomorrow: ${esc(tomorrow.title)} — ${esc(first.time)} ${esc(resolveItem(first).title)}</p>`;
+  } else {
+    focusHtml = `<p class="pulse-next"><span class="pulse-tag">Done</span><b>Last night in the mountains</b></p>
+      <p class="pulse-line">${icon('fire')}Enjoy the campfire.</p>`;
+  }
+
+  el.innerHTML = `<div class="pulse" data-phase="during">
+    <div class="pulse-head">
+      <p class="pulse-eyebrow">🍂 Day ${D.n} — ${D.dow}${plan() === 'B' ? ' <span class="pulse-planb">Plan B</span>' : ''}</p>
+      <span class="pulse-live" aria-hidden="true"></span>
+    </div>
+    <p class="pulse-wx">${icon(wx.icon)}${esc(wx.line)}</p>
+    ${wx.wet && plan() === 'A' ? `<a class="pulse-alert" href="#itinerary" data-plan-link="B">${icon('umbrella')}Rain likely — switch to Plan B</a>` : ''}
+    ${focusHtml}
+    <div class="pulse-prog"><div class="progress"><i style="width:${pct}%"></i></div><span>${st.done} of ${st.total} done</span></div>
+    <div class="pulse-actions">
+      <a class="btn-sm" href="#itinerary" data-goday="${D.n}">${icon('calendar')}Today’s plan</a>
+      ${r && r.lat != null && r.id !== 'home' ? `<a class="btn-sm ghost" href="${dirUrl(r)}" target="_blank" rel="noopener">${icon('nav')}Directions</a>` : ''}
+      <a class="btn-sm ghost" href="#nearby">${icon('compass')}Nearby</a>
+    </div>
+  </div>`;
 }
 
 function weatherWidget(compact = false) {
@@ -406,9 +536,10 @@ function weatherWidget(compact = false) {
 }
 
 function renderDashboard() {
+  if (now() >= TRIP_START) renderPulse();
   const el = $('#dashboard');
   const tDay = todayTripDay();
-  const before = Date.now() < TRIP_START && !tDay;
+  const before = now() < TRIP_START && !tDay;
   const showDay = tDay || 1;
   const D = DAYS.find(d => d.n === showDay);
   const tst = dayStats(showDay);
@@ -429,7 +560,7 @@ function renderDashboard() {
       <div>${icon('calendar')}<span><small>Dates</small>October 8–11, 2026</span></div>
       <div>${icon('cabin')}<span><small>Length</small>4 Days / 4 Nights</span></div>
       <div>${icon('mountain')}<span><small>Basecamp</small>Blue Ridge, Georgia</span></div>
-      <div>${icon(forecast.current ? describe(forecast.current.code).icon : 'sun')}<span><small>Now in Blue Ridge</small>${forecast.current ? `${forecast.current.temp}°F · ${describe(forecast.current.code).label}` : 'Mild days, cool nights'}</span></div>
+      ${(() => { const cur = PREVIEW_OFFSET ? null : forecast.current; return `<div>${icon(cur ? describe(cur.code).icon : 'sun')}<span><small>Now in Blue Ridge</small>${cur ? `${cur.temp}°F · ${describe(cur.code).label}` : 'Mild days, cool nights'}</span></div>`; })()}
     </div>
 
     <div class="dash-grid">

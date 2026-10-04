@@ -287,3 +287,66 @@ test.describe('what\'s nearby without permission', () => {
     await expect(page.locator('#nearOrigin')).toBeVisible();
   });
 });
+
+test.describe('trip pulse', () => {
+  const at = iso => new Date(iso);
+  const cabin = () => localStorage.setItem('brt:home', JSON.stringify({ name: 'Test Cabin', lat: 34.83, lng: -84.28 }));
+
+  test('before the trip it is a countdown', async ({ page }) => {
+    await page.clock.install({ time: at('2026-10-05T12:00:00-04:00') });
+    await page.goto('/');
+    await expect(page.locator('#countdown > div')).toHaveCount(4);
+    await expect(page.locator('.pulse')).toHaveCount(0);
+    await expect(page.locator('.hero-cta')).toBeVisible();
+  });
+
+  test('during the trip it becomes the command center', async ({ page }) => {
+    await page.addInitScript(cabin);
+    await page.clock.install({ time: at('2026-10-09T09:40:00-04:00') });
+    await page.goto('/');
+    const pulse = page.locator('.pulse');
+    await expect(pulse.locator('.pulse-eyebrow')).toHaveText(/Day 2 — Friday/i);
+    await expect(pulse.locator('.pulse-wx')).toContainText('61°F · Overcast');
+    await expect(pulse.locator('.pulse-next')).toContainText('Now');
+    await expect(pulse.locator('.pulse-next')).toContainText('Hike Fall Branch Falls');
+    await expect(pulse).toContainText('drive from cabin');
+    await expect(pulse).toContainText('Then: Toccoa River Swinging Bridge · 10:30 AM');
+    await expect(pulse.getByRole('link', { name: 'Directions' })).toHaveAttribute('href', /google\.com\/maps/);
+    await expect(page.locator('.hero-cta')).toBeHidden();
+
+    // Checking off the current activity advances the pulse
+    await page.goto('/#itinerary');
+    await page.locator('[data-day="2"]').click();
+    await page.locator('.act', { hasText: 'Hike Fall Branch Falls' }).locator('[data-status="done"]').click();
+    await page.goto('/#home');
+    await expect(pulse.locator('.pulse-next')).toContainText('Next');
+    await expect(pulse.locator('.pulse-next')).toContainText('Toccoa River Swinging Bridge');
+    await expect(pulse).toContainText('10:30 AM · in 50 min');
+    await expect(pulse.locator('.pulse-prog')).toContainText('1 of 8 done');
+  });
+
+  test('suggests Plan B on a rainy day and wraps up at night', async ({ page }) => {
+    await page.clock.install({ time: at('2026-10-10T07:00:00-04:00') });
+    await page.goto('/');
+    await expect(page.locator('.pulse-alert')).toContainText('switch to Plan B');
+    await expect(page.locator('.pulse-next')).toContainText('Breakfast: Royal Waffle King');
+    await expect(page.locator('.pulse')).toContainText('in 30 min');
+
+    await page.clock.setFixedTime(at('2026-10-10T23:30:00-04:00'));
+    await page.reload();
+    await expect(page.locator('.pulse-next')).toContainText('That’s a wrap');
+    await expect(page.locator('.pulse')).toContainText('Tomorrow: Relax & Favorites');
+  });
+
+  test('after the trip shows a recap', async ({ page }) => {
+    await page.clock.install({ time: at('2026-10-12T10:00:00-04:00') });
+    await page.goto('/');
+    await expect(page.locator('.pulse')).toContainText('Trip complete');
+  });
+
+  test('?now= previews the command center before the trip', async ({ page }) => {
+    await page.goto('/?now=2026-10-11T18:10');
+    await expect(page.locator('.pulse-eyebrow')).toHaveText(/Day 4 — Sunday/i);
+    await expect(page.locator('.pulse-next')).toContainText('Sunset drinks on The Lookout rooftop');
+  });
+});
