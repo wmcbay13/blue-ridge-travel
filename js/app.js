@@ -331,6 +331,7 @@ function renderItinerary(activeDay) {
       <p class="dp-meta">${st.remaining ? `<b>${st.remaining}</b> remaining` : (st.total ? '<b>All done</b> — nice day!' : 'Nothing planned')}${st.skip ? ` · ${st.skip} skipped` : ''}${st.next ? ` · Up next: <b>${esc(st.next.it.time)}</b> ${esc(resolveItem(st.next.it).title)}` : ''}</p>
       <div class="dp-actions">
         <label class="switch"><input type="checkbox" id="hideClosed" ${hideClosed ? 'checked' : ''}><span>Hide done &amp; skipped</span></label>
+        <a class="btn-sm near-link" href="#nearby">${icon('compass')}Finished early? What’s nearby</a>
         ${st.done || st.skip ? `<button type="button" class="linkish" data-reset-day>${icon('trash')}Reset Day ${D.n}</button>` : ''}
       </div>
     </div>
@@ -465,6 +466,7 @@ function renderDashboard() {
       <div class="panel quick">
         <div class="panel-h"><h2>Quick links</h2></div>
         <div class="quick-grid">
+          <a href="#nearby" class="wide" style="--photo:${bg('downtown3')}">${icon('compass')}What’s nearby?</a>
           <a href="#eat" style="--photo:${bg('grits')}">${icon('fork')}Restaurants</a>
           <a href="#breweries" style="--photo:${bg('beerflight')}">${icon('beer')}Breweries</a>
           <a href="#explore" data-cat="hiking" style="--photo:${bg('fallbranch')}">${icon('boot')}Hikes</a>
@@ -740,9 +742,164 @@ function openAdd(id) {
   dlg.showModal ? dlg.showModal() : dlg.setAttribute('open', '');
 }
 
+/* ───────────── what's nearby ───────────── */
+
+const NEAR_CATS = [['all', 'Everything'], ['food', 'Food'], ['brewery', 'Breweries'], ['attraction', 'Attractions'], ['event', 'Events']];
+const NEAR_RADII = [['5', '5 mi'], ['15', '15 mi'], ['30', '30 mi'], ['any', 'Any distance']];
+const ATTRACTION_CATS = ['hike', 'waterfall', 'scenic', 'attraction', 'shopping', 'orchard', 'town'];
+const FAR_FROM_TRIP = 60; // miles from downtown before we warn that GPS is somewhere else
+
+// Origin lives in memory only — location is never written to storage.
+const near = { origin: null, status: 'idle', cat: 'all', radius: 'any' };
+
+function nearKind(p) {
+  if (p.cat === 'event') return 'event';
+  if (p.cat === 'brewery') return 'brewery';
+  if (p.cat === 'eat' || p.meals) return 'food';
+  if (ATTRACTION_CATS.includes(p.cat)) return 'attraction';
+  return null;
+}
+
+// Events: during/before the trip, only show ones still happening today or later.
+function eventStillOn(e) {
+  const today = nyDateStr();
+  return e.dates.some(d => d >= today);
+}
+
+function nearbyItems() {
+  const today = nyDateStr();
+  const places = [...PLACES, ...EXTRA_PLACES].filter(p => p.lat != null && nearKind(p));
+  const events = EVENTS.filter(eventStillOn).map(e => ({ ...eventAsPlace(e), today: e.dates.includes(today) }));
+  return [...places, ...events];
+}
+
+// Straight-line × 1.3 ≈ road miles on mountain roads; ~30 mph average plus parking time.
+function travelEstimate(roadMi) {
+  if (roadMi <= 0.6) return { mode: 'walk', label: `${Math.max(2, Math.round(roadMi * 20))} min walk` };
+  return { mode: 'drive', label: `≈${Math.round(roadMi / 30 * 60 + 3)} min drive` };
+}
+
+function nearbyDirUrl(p) {
+  const o = near.origin;
+  const origin = o?.source === 'gps' ? `&origin=${o.lat},${o.lng}` : '';
+  return dirUrl(p) + origin + (o && travelEstimate(miles(o, p) * 1.3).mode === 'walk' ? '&travelmode=walking' : '');
+}
+
+function originChoices() {
+  const h = homeBase();
+  const opts = [['town', TOWN.name, TOWN]];
+  if (!h.unset && h.lat != null) opts.push(['home', `${h.name} (home base)`, h]);
+  [...PLACES, ...EXTRA_PLACES].filter(p => p.lat != null).sort((a, b) => a.name.localeCompare(b.name))
+    .forEach(p => opts.push([p.id, p.name, p]));
+  return opts;
+}
+
+function locate() {
+  if (!navigator.geolocation) {
+    near.status = 'unsupported';
+    return renderNearby();
+  }
+  near.status = 'locating';
+  renderNearby();
+  navigator.geolocation.getCurrentPosition(pos => {
+    near.origin = { lat: pos.coords.latitude, lng: pos.coords.longitude, label: 'your current location', source: 'gps' };
+    near.status = 'ok';
+    renderNearby();
+  }, err => {
+    near.status = err.code === 1 ? 'denied' : 'error';
+    renderNearby();
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+}
+
+function nearRow(p, i) {
+  const road = miles(near.origin, p) * 1.3;
+  const t = travelEstimate(road);
+  const kind = nearKind(p);
+  const sub = kind === 'event' ? `${p.today ? '<b class="today">Today</b> · ' : ''}${esc(p.when)}`
+    : kind === 'food' ? esc([p.cuisine, p.price].filter(Boolean).join(' · '))
+      : kind === 'brewery' ? esc(p.styles || '')
+        : esc(CATS[p.cat]?.label || '');
+  return `<li class="near-row" data-id="${esc(p.id)}">
+    <span class="near-rank">${i + 1}</span>
+    ${photo(p.img, p.name, 'thumb')}
+    <div class="near-body">
+      <div class="near-top"><h3>${esc(p.name)}</h3><span class="near-dist">${road < 0.1 ? '<0.1 mi' : `${road.toFixed(road < 10 ? 1 : 0)} mi`}</span></div>
+      <p class="near-sub"><span class="cat-dot" style="--c:${CATS[p.cat]?.color}"></span>${sub}</p>
+      <p class="near-meta">${icon(t.mode === 'walk' ? 'boot' : 'car')}${t.label}${p.hours && kind !== 'event' ? ` · ${icon('clock')}${esc(p.hours)}` : ''}</p>
+      ${p.verify ? verifyPill(p) : ''}
+      <div class="actions">
+        <a class="btn-sm" href="${nearbyDirUrl(p)}" target="_blank" rel="noopener">${icon('nav')}Go</a>
+        ${p.url ? `<a class="btn-sm ghost" href="${esc(p.url)}" target="_blank" rel="noopener">${icon('globe')}Info</a>` : ''}
+        <button class="btn-sm ghost" data-add="${esc(p.id)}">${icon('plus')}<span class="lbl-long">Add to day</span><span class="lbl-short">Day</span></button>
+        <button class="btn-sm ghost heart-sm ${favs.has(p.id) ? 'on' : ''}" data-fav="${esc(p.id)}" aria-pressed="${favs.has(p.id)}" aria-label="Save ${esc(p.name)}">${icon('heart')}</button>
+      </div>
+    </div>
+  </li>`;
+}
+
+function renderNearby() {
+  const el = $('#nearby');
+  const o = near.origin;
+  const msg = {
+    idle: 'Tap the button to sort everything by distance from you.',
+    locating: 'Finding you…',
+    denied: 'Location permission was denied. Allow location for this site in your browser settings, or pick a starting point below.',
+    error: 'Couldn’t get a location fix (common in the forest). Try again in the open, or pick a starting point below.',
+    unsupported: 'This browser can’t share location. Pick a starting point below.',
+    ok: '',
+  }[near.status];
+
+  let results = '';
+  if (o) {
+    const r = near.radius === 'any' ? Infinity : Number(near.radius);
+    const all = nearbyItems().map(p => ({ p, d: miles(o, p) * 1.3 })).sort((a, b) => a.d - b.d);
+    const inCat = all.filter(x => near.cat === 'all' || nearKind(x.p) === near.cat);
+    const list = inCat.filter(x => x.d <= r);
+    const far = miles(TOWN, o);
+    results = `
+      ${o.source === 'gps' && far > FAR_FROM_TRIP ? `<div class="alert rain small">${icon('info')}<div>You’re about ${Math.round(far)} mi from Blue Ridge, so everything is far away. To preview, pick a starting point like Downtown Blue Ridge below.</div></div>` : ''}
+      <p class="near-count">${list.length ? `<b>${list.length}</b> ${list.length === 1 ? 'place' : 'places'} within ${r === Infinity ? 'any distance' : `${r} mi`} of <b>${esc(o.label)}</b>` : `Nothing within ${r} mi of ${esc(o.label)}.${inCat.length ? ` Closest is <b>${esc(inCat[0].p.name)}</b> at ${inCat[0].d.toFixed(0)} mi.` : ''}`}</p>
+      <ol class="near-list">${list.map((x, i) => nearRow(x.p, i)).join('')}</ol>
+      ${list.length === 0 && r !== Infinity ? `<p class="center"><button class="btn-sm" data-near-radius="any">Show all distances</button></p>` : ''}
+      <p class="muted small">Distances are estimates (straight line × 1.3 for winding mountain roads, ~30 mph). Tap <b>Go</b> for real directions.</p>`;
+  }
+
+  el.innerHTML = `
+    <div class="near-hero">
+      <button class="btn btn-amber near-cta" id="nearLocate" ${near.status === 'locating' ? 'disabled' : ''}>${icon('compass')}${near.status === 'locating' ? 'Locating…' : o?.source === 'gps' ? 'Refresh my location' : 'What’s nearby?'}</button>
+      ${msg ? `<p class="near-msg ${['denied', 'error', 'unsupported'].includes(near.status) ? 'warn' : ''}" role="status">${msg}</p>` : ''}
+      <label class="near-origin">Or start from
+        <select id="nearOrigin">
+          <option value="">${o?.source === 'gps' ? '📍 My current location' : 'Choose a place…'}</option>
+          ${originChoices().map(([k, label]) => `<option value="${esc(k)}" ${o?.key === k ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    ${o ? `<div class="chips" id="nearCats"></div><div class="chips small-chips" id="nearRadius"></div>` : ''}
+    ${results}`;
+
+  $('#nearLocate').onclick = locate;
+  $('#nearOrigin').onchange = e => {
+    const k = e.target.value;
+    if (!k) return;
+    const hit = originChoices().find(([key]) => key === k);
+    near.origin = { lat: hit[2].lat, lng: hit[2].lng, label: hit[1], source: 'pick', key: k };
+    near.status = 'ok';
+    renderNearby();
+  };
+  if (o) {
+    chips($('#nearCats'), NEAR_CATS, near.cat, k => { near.cat = k; renderNearby(); });
+    chips($('#nearRadius'), NEAR_RADII, near.radius, k => { near.radius = k; renderNearby(); });
+  }
+  el.onclick = e => {
+    const rb = e.target.closest('[data-near-radius]');
+    if (rb) { near.radius = rb.dataset.nearRadius; renderNearby(); }
+  };
+}
+
 /* ───────────── router & global events ───────────── */
 
-const VIEWS = ['home', 'itinerary', 'explore', 'eat', 'breweries', 'events', 'map', 'info'];
+const VIEWS = ['home', 'itinerary', 'explore', 'eat', 'breweries', 'events', 'map', 'nearby', 'info'];
 const rendered = new Set();
 
 function route() {
@@ -760,6 +917,8 @@ function route() {
   if (view === 'itinerary') renderItinerary();
   if (view === 'map') renderMap();
   if (view === 'info') renderInfo();
+  if (view === 'nearby') renderNearby();
+  $('.near-btn').classList.toggle('active', view === 'nearby');
   window.scrollTo(0, 0);
   $('#topbar').classList.toggle('solid', view !== 'home');
   if (view === 'info' && pendingScroll) { $('#' + pendingScroll)?.scrollIntoView({ behavior: 'smooth' }); pendingScroll = null; }
@@ -773,7 +932,7 @@ function closeMenu() {
 
 function syncHearts(id) {
   const on = favs.has(id);
-  $$(`[data-fav="${CSS.escape(id)}"].heart`).forEach(b => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+  $$(`[data-fav="${CSS.escape(id)}"]:is(.heart, .heart-sm)`).forEach(b => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
 }
 
 function bindGlobal() {

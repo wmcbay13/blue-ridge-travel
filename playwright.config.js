@@ -11,6 +11,6 @@ export default defineConfig({
   webServer: { command: 'python3 -m http.server 8766 2>/dev/null', port: 8766, reuseExistingServer: true },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], launchOptions } },
-    { name: 'phone', use: { ...devices['Pixel 7'], launchOptions } },
+    { name: 'phone', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 }, launchOptions } },
   ],
 });

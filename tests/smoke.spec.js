@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const VIEWS = ['home', 'itinerary', 'explore', 'eat', 'breweries', 'events', 'map', 'info'];
+const VIEWS = ['home', 'itinerary', 'explore', 'eat', 'breweries', 'events', 'map', 'nearby', 'info'];
 
 // Deterministic forecast: Sat Oct 10 is a washout so the Plan B prompt should appear.
 const FORECAST = {
@@ -25,7 +25,7 @@ test('every view renders without errors or horizontal scroll', async ({ page }) 
   for (const v of VIEWS) {
     await page.goto('/#' + v);
     await expect(page.locator(`section[data-view="${v}"]`)).toBeVisible();
-    await expect(page.locator(`#nav a[href="#${v}"]`)).toHaveClass(/active/);
+    if (v !== 'nearby') await expect(page.locator(`#nav a[href="#${v}"]`)).toHaveClass(/active/);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, `overflow on ${v}`).toBeLessThanOrEqual(0);
   }
@@ -215,4 +215,75 @@ test('dashboard shows day progress', async ({ page }) => {
   await page.goto('/#home');
   await expect(page.locator('.mini-prog')).toContainText('1 of');
   await expect(page.locator('.mini-tl li.is-done')).toHaveCount(1);
+});
+
+test.describe('what\'s nearby', () => {
+  // Standing on Ocoee St in Copperhill, TN
+  test.use({ geolocation: { latitude: 34.9890, longitude: -84.3720 }, permissions: ['geolocation'] });
+
+  test('sorts by distance from current location, with filters', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.near-btn').click();
+    await expect(page).toHaveURL(/#nearby$/);
+    await page.locator('#nearLocate').click();
+    await expect(page.locator('.near-count')).toContainText('your current location');
+
+    // Copperhill's two breweries are across the street — they must be the closest results
+    const first2 = await page.locator('.near-row h3').evaluateAll(els => els.slice(0, 3).map(e => e.textContent));
+    expect(first2.join()).toMatch(/Copperhill Brewery|Buck Bald/);
+
+    // Distances are ascending
+    const d = await page.locator('.near-dist').evaluateAll(els => els.map(e => parseFloat(e.textContent.replace('<', '')) || 0));
+    expect(d).toEqual([...d].sort((a, b) => a - b));
+
+    await page.locator('#nearCats [data-k="brewery"]').click();
+    const names = await page.locator('.near-row h3').allTextContents();
+    expect(names.length).toBe(5);
+    expect(names.slice(0, 2).sort()).toEqual(['Buck Bald Brewing', 'Copperhill Brewery (Riverside Taproom)']);
+
+    // A walkable result gets walking directions from the current location
+    const go = page.locator('.near-row').first().getByRole('link', { name: 'Go' });
+    await expect(go).toHaveAttribute('href', /origin=34\.989,-84\.372.*travelmode=walking/);
+
+    // Radius filter
+    await page.locator('#nearRadius [data-k="5"]').click();
+    await expect(page.locator('.near-row')).toHaveCount(2);
+    await page.locator('#nearCats [data-k="food"]').click();
+    await expect(page.locator('.near-count')).toContainText('Nothing within 5 mi');
+    await page.locator('[data-near-radius="any"]').click();
+    expect(await page.locator('.near-row').count()).toBeGreaterThan(10);
+  });
+
+  test('can start from a chosen place without GPS', async ({ page }) => {
+    await page.goto('/#nearby');
+    await page.locator('#nearOrigin').selectOption('town');
+    await expect(page.locator('.near-count')).toContainText('Downtown Blue Ridge');
+    await page.locator('#nearCats [data-k="event"]').click();
+    expect(await page.locator('.near-row').count()).toBeGreaterThan(0);
+    await page.locator('#nearCats [data-k="attraction"]').click();
+    await expect(page.locator('.near-row').first()).toBeVisible();
+    // Save from the list updates favorites
+    await page.locator('.near-row .heart-sm').first().click();
+    await expect(page.locator('#favCount')).toHaveText('1');
+  });
+
+  test('is linked from the itinerary progress panel', async ({ page }) => {
+    await page.goto('/#itinerary');
+    await page.locator('.near-link').click();
+    await expect(page.locator('section[data-view="nearby"]')).toBeVisible();
+  });
+});
+
+test.describe('what\'s nearby without permission', () => {
+  test.use({ permissions: [] });
+  test('explains denied location and offers a fallback', async ({ page, context }) => {
+    await context.clearPermissions();
+    await page.addInitScript(() => {
+      navigator.geolocation.getCurrentPosition = (_ok, fail) => fail({ code: 1, message: 'denied' });
+    });
+    await page.goto('/#nearby');
+    await page.locator('#nearLocate').click();
+    await expect(page.locator('.near-msg.warn')).toContainText('permission was denied');
+    await expect(page.locator('#nearOrigin')).toBeVisible();
+  });
 });
