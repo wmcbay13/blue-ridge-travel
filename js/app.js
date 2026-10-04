@@ -3,6 +3,7 @@ import { DAYS, PLAN_A, PLAN_B, EXTRA_PLACES } from '../data/itinerary.js';
 import { EVENTS } from '../data/events.js';
 import { DRIVES } from '../data/drives.js';
 import { WEATHER_NORMALS, PACKING, TIPS, BREWERY_TRAILS } from '../data/info.js';
+import { DOWNTIME, CABIN_MEALS, MEAL_TYPES, mealForMinutes } from '../data/cabin.js';
 import { icon, ridges, TOPO } from './icons.js';
 import { load, save, favs, added, progress, planKey } from './store.js';
 import { getForecast, describe, RAIN_THRESHOLD } from './weather.js';
@@ -46,9 +47,17 @@ const eventAsPlace = e => ({ ...e, cat: 'event', addr: e.where, hours: e.when, v
 
 const ALL = new Map([...PLACES, ...EXTRA_PLACES].map(p => [p.id, p]));
 EVENTS.forEach(e => ALL.set(e.id, eventAsPlace(e)));
+[...DOWNTIME, ...CABIN_MEALS].forEach(c => ALL.set(c.id, c));
 
 function lookup(id) {
-  return id === 'home' ? homeBase() : ALL.get(id);
+  if (id === 'home') return homeBase();
+  const p = ALL.get(id);
+  if (p?.atCabin) {
+    // cabin items live wherever the (device-local) home base is
+    const h = homeBase();
+    return { ...p, lat: h.lat, lng: h.lng, addr: h.addr, homeName: h.name, homeUnset: h.unset || (h.lat == null && !h.addr) };
+  }
+  return p;
 }
 
 function miles(a, b) {
@@ -239,7 +248,11 @@ function dayItems(day, p = plan()) {
     it: { ...a, place: ALL.has(a.id) && !EVENTS.find(e => e.id === a.id) ? a.id : undefined, event: EVENTS.find(e => e.id === a.id) ? a.id : undefined, priority: 'optional' },
     idx: i, key: added.key(day, a, i), removable: true,
   }));
-  return [...planned, ...extra].map(x => ({ ...x, status: progress.get(x.key) }));
+  // one timeline ordered by clock time (stable; "Flexible" items go last)
+  const at = x => parseTime(x.it.time) ?? 24 * 60;
+  return [...planned, ...extra]
+    .map((x, order) => ({ ...x, order, status: progress.get(x.key) }))
+    .sort((a, b) => at(a) - at(b) || a.order - b.order);
 }
 
 // Skipped items drop out of the plan, so "of N" counts only done + upcoming
@@ -256,10 +269,12 @@ function activityCard(it, idx, { removable = false, day, key, status = 'upcoming
   const r = resolveItem(it);
   const [plabel, pcls] = PRIORITY[it.priority] || PRIORITY.optional;
   const isHome = r.id === 'home';
-  const loc = isHome ? r.name : (r.addr ? r.addr.split(',').slice(0, 2).join(',') : r.name || '');
-  const driveTxt = it.drive ? 'See route' : driveLabel(r);
+  const atCabin = !!r.atCabin;
+  const loc = isHome ? r.name : atCabin ? `At ${r.homeName || 'the cabin'}` : (r.addr ? r.addr.split(',').slice(0, 2).join(',') : r.name || '');
+  const isMealOut = r.cat === 'eat' && status === 'upcoming';
+  const driveTxt = it.drive ? 'See route' : atCabin ? 'None — at the cabin' : driveLabel(r);
   const closed = status !== 'upcoming';
-  return `<li class="act ${it.priority || ''} is-${status} ${next ? 'is-next' : ''}" data-key="${esc(key)}">
+  return `<li class="act ${it.priority || ''} is-${status} ${next ? 'is-next' : ''} ${removable ? 'is-added' : ''} ${atCabin ? 'is-cabin' : ''}" data-key="${esc(key)}">
     <div class="act-time"><span>${status === 'done' ? icon('check') : status === 'skip' ? icon('x') : ''}${esc(it.time)}</span></div>
     <article class="act-card">
       ${photo(r.img, r.title, 'act-ph')}
@@ -267,19 +282,22 @@ function activityCard(it, idx, { removable = false, day, key, status = 'upcoming
         ${closed ? `<button type="button" class="act-summary" data-expand aria-expanded="false">
           <b>${esc(r.title)}</b><span class="pill ${status === 'done' ? 'pill-done' : 'pill-skip'}">${status === 'done' ? 'Done' : 'Skipped'}</span><small>Details</small></button>` : ''}
         <div class="act-top">
-          ${next ? pill('Up next', 'pill-next') : ''}${pill(plabel, pcls)}${verifyPill(r)}
+          ${next ? pill('Up next', 'pill-next') : ''}${removable ? pill(atCabin ? (r.kind === 'meal' ? 'Cabin meal' : 'Downtime') : 'Added', 'pill-added') : pill(plabel, pcls)}${verifyPill(r)}
           ${r.id && !isHome && !String(r.id).startsWith('drive-') ? favButton(r.id) : ''}
         </div>
         <h3>${esc(r.title)}</h3>
         ${loc ? `<p class="loc">${icon('pin')}${esc(loc)}</p>` : ''}
         ${r.desc ? `<p>${esc(r.desc)}</p>` : ''}
+        ${r.groceries ? `<p class="small"><b>Groceries:</b> ${r.groceries.map(esc).join(' · ')}</p>` : ''}
+        ${r.bring ? `<p class="small"><b>Bring:</b> ${r.bring.map(esc).join(' · ')}</p>` : ''}
         <div class="facts compact">
           ${fact('clock', 'Duration', r.duration)}${fact('car', 'Drive', driveTxt)}
           ${fact('dollar', 'Cost', r.cost)}${fact('calendar', 'Reservations', r.reservation)}
         </div>
         <div class="actions">
           ${r.url ? `<a class="btn-sm" href="${esc(r.url)}" target="_blank" rel="noopener">${icon('globe')}${it.drive ? 'Route map' : 'Website'}</a>` : ''}
-          ${!it.drive && !(isHome && r.unset) ? `<a class="btn-sm" href="${dirUrl(r)}" target="_blank" rel="noopener">${icon('nav')}Directions</a>` : ''}
+          ${!it.drive && !(isHome && r.unset) && !(atCabin && r.homeUnset) ? `<a class="btn-sm" href="${dirUrl(r)}" target="_blank" rel="noopener">${icon('nav')}Directions</a>` : ''}
+          ${isMealOut ? `<button class="btn-sm ghost" data-swap="${esc(key)}" data-time="${esc(it.time)}">${icon('cabin')}Cook at cabin instead</button>` : ''}
           ${removable ? `<button class="btn-sm ghost" data-remove="${day}:${idx}">${icon('trash')}Remove</button>` : ''}
         </div>
         ${statusControl(key, status, r.title)}
@@ -308,7 +326,6 @@ function renderItinerary(activeDay) {
   const hideClosed = load('hideClosed', false);
   const visible = st.items.filter(x => !hideClosed || x.status === 'upcoming');
   const card = x => activityCard(x.it, x.idx, { removable: x.removable, day, key: x.key, status: x.status, next: x === st.next });
-  const planned = visible.filter(x => !x.removable), extra = visible.filter(x => x.removable);
   const pct = st.total ? Math.round(st.done / st.total * 100) : 0;
   const w = wxForDay(D.date);
   const rainy = w && w.pop >= RAIN_THRESHOLD;
@@ -345,14 +362,25 @@ function renderItinerary(activeDay) {
         ${st.done || st.skip ? `<button type="button" class="linkish" data-reset-day>${icon('trash')}Reset Day ${D.n}</button>` : ''}
       </div>
     </div>
-    <ol class="timeline">${planned.map(card).join('')}</ol>
+    <div class="cabin-bar">
+      <div>${icon('cabin')}<span><b>Cabin time</b><small>Add downtime or a home-cooked meal to Day ${D.n}</small></span></div>
+      <div class="cabin-btns">
+        <button type="button" class="btn-sm" data-cabin="downtime">${icon('plus')}Downtime</button>
+        <button type="button" class="btn-sm" data-cabin="meal">${icon('plus')}Cabin meal</button>
+      </div>
+    </div>
+    <ol class="timeline">${visible.map(card).join('')}</ol>
     ${hideClosed && st.items.length > visible.length ? `<p class="muted small center">${st.items.length - visible.length} done/skipped ${st.items.length - visible.length === 1 ? 'item' : 'items'} hidden</p>` : ''}
-    ${extra.length ? `<h4 class="added-h">${icon('heart')}Added from favorites</h4><ol class="timeline">${extra.map(card).join('')}</ol>` : ''}
     <p class="muted small center">Swipe between days above · ${plan() === 'A' ? 'Weather looking bad? Switch to Plan B.' : 'Sun came out? Switch back to Plan A.'}</p>`;
 
   el.onclick = e => {
-    const t = e.target.closest('[data-day],[data-plan],[data-remove],[data-status],[data-expand],[data-reset-day]');
+    const t = e.target.closest('[data-day],[data-plan],[data-remove],[data-status],[data-expand],[data-reset-day],[data-cabin],[data-swap]');
     if (!t) return;
+    if (t.dataset.cabin) { openCabin({ tab: t.dataset.cabin, day }); return; }
+    if (t.dataset.swap) {
+      openCabin({ tab: 'meal', day, time: t.dataset.time, meal: mealForMinutes(parseTime(t.dataset.time)), swapKey: t.dataset.swap });
+      return;
+    }
     if (t.dataset.status) {
       progress.set(t.dataset.key, t.dataset.status);
       renderItinerary(day);
@@ -440,6 +468,7 @@ function pulseFocus(day) {
 }
 
 function pulseDistance(r) {
+  if (r.atCabin) return 'At the cabin';
   if (r.lat == null || r.id === 'home') return '';
   const h = homeBase();
   const from = !h.unset && h.lat != null ? { ...h, label: 'cabin' } : { ...TOWN, label: 'downtown' };
@@ -717,7 +746,7 @@ function renderMap() {
   const items = [homeBase(), ...PLACES, ...EXTRA_PLACES, ...EVENTS.map(eventAsPlace)].filter(p => p.lat != null);
   el.innerHTML = `<div class="chips" id="mapChips"></div><div class="tripmap" id="tripmap"></div>
     <p class="muted small">${homeBase().unset ? 'Tip: set your cabin location in Trip Info to see it here (stored only on your device).' : ''}</p>`;
-  const drawChips = () => chips($('#mapChips'), Object.entries(CATS).map(([k, c]) => [k, `<i class="dot" style="--c:${c.color}"></i>${c.label}`]), mapCats, k => {
+  const drawChips = () => chips($('#mapChips'), Object.entries(CATS).filter(([, c]) => !c.noMap).map(([k, c]) => [k, `<i class="dot" style="--c:${c.color}"></i>${c.label}`]), mapCats, k => {
     mapCats.has(k) ? mapCats.delete(k) : mapCats.add(k);
     layerByCat[k] && (mapCats.has(k) ? layerByCat[k].addTo(tripMap) : tripMap.removeLayer(layerByCat[k]));
     drawChips();
@@ -763,6 +792,8 @@ function renderInfo() {
       </div>
     </div>
 
+    ${groceryPanel()}
+
     <div class="section-head sub"><p class="eyebrow">Know before you go</p><h2>Trip Tips</h2></div>
     <div class="tips">${TIPS.map(t => `<article class="tip">${icon(t.icon)}<h3>${esc(t.title)}</h3><p>${esc(t.body)}</p></article>`).join('')}</div>
 
@@ -792,6 +823,13 @@ function renderInfo() {
     </div>`;
 
   el.onchange = e => {
+    const g = e.target.dataset.grocery;
+    if (g != null) {
+      const got = load('groceries', {});
+      e.target.checked ? (got[g] = true) : delete got[g];
+      save('groceries', got);
+      return;
+    }
     const k = e.target.dataset.pack;
     if (k == null) return;
     const p = load('packing', {});
@@ -800,6 +838,15 @@ function renderInfo() {
     const openGroups = $$('details[open] summary', el).map(s => s.firstChild.textContent.trim());
     renderInfo();
     $$('details', el).forEach(d => { if (openGroups.includes(d.querySelector('summary').firstChild.textContent.trim())) d.open = true; });
+  };
+  const copy = $('#copyGroceries');
+  if (copy) copy.onclick = async () => {
+    const { items, bring } = cabinGroceries();
+    const got = load('groceries', {});
+    const text = ['Blue Ridge cabin groceries', ...items.filter(([n]) => !got[n]).map(([n]) => '• ' + n),
+      ...(bring.length ? ['', 'Bring', ...bring.filter(([n]) => !got[n]).map(([n]) => '• ' + n)] : [])].join('\n');
+    try { await navigator.clipboard.writeText(text); toast('List copied — paste it in a text'); }
+    catch { toast('Couldn’t copy on this browser'); }
   };
   $('#homeForm').onsubmit = e => {
     e.preventDefault();
@@ -820,6 +867,23 @@ function renderInfo() {
   };
   const clr = $('#clearHome');
   if (clr) clr.onclick = () => { save('home', null); resetMap(); renderInfo(); toast('Home base cleared'); };
+}
+
+function groceryPanel() {
+  const { meals, items, bring } = cabinGroceries();
+  const got = load('groceries', {});
+  const row = ([name, n]) => `<li><label><input type="checkbox" data-grocery="${esc(name)}" ${got[name] ? 'checked' : ''}><span>${esc(name)}${n > 1 ? ` <small>×${n} meals</small>` : ''}</span></label></li>`;
+  return `<div class="panel grocery" id="groceries">
+    <div class="panel-h"><h2>${icon('cart')} Cabin grocery list</h2>
+      ${items.length || bring.length ? `<button type="button" class="btn-sm ghost" id="copyGroceries">${icon('check')}Copy list</button>` : ''}</div>
+    ${meals.length || bring.length ? `
+      ${meals.length ? `<p class="small muted">For ${meals.length} cabin ${meals.length === 1 ? 'meal' : 'meals'}: ${meals.map(m => `Day ${m.day} ${esc(m.p.name)}`).join(' · ')}</p>
+      <ul class="checklist cols">${items.map(row).join('')}</ul>` : ''}
+      ${bring.length ? `<h3 class="small-h">Bring for downtime</h3><ul class="checklist cols">${bring.map(row).join('')}</ul>` : ''}
+      <p class="small muted">Ingles Markets on GA-515 is the main grocery in town; Mercier Orchards has apples, cider, pies and apple butter.</p>`
+    : `<p class="muted">Add a cabin meal or downtime to any day (Itinerary → <b>Cabin time</b>, or <b>Cook at cabin instead</b> on a restaurant stop) and the shopping list builds itself here.</p>
+       <a class="btn-sm" href="#itinerary">${icon('calendar')}Open itinerary</a>`}
+  </div>`;
 }
 
 function resetMap() {
@@ -871,6 +935,52 @@ function openAdd(id) {
   $('#addTime').value = '';
   const dlg = $('#addDlg');
   dlg.showModal ? dlg.showModal() : dlg.setAttribute('open', '');
+}
+
+/* ───────────── cabin time picker ───────────── */
+
+const cabin = { tab: 'downtime', meal: 'all', day: 1, swapKey: null };
+
+function openCabin({ tab = 'downtime', day = load('day', 1), time = '', meal = 'all', swapKey = null } = {}) {
+  Object.assign(cabin, { tab, day: Number(day), meal, swapKey, time });
+  $('#cabinDay').innerHTML = DAYS.map(d => `<option value="${d.n}">Day ${d.n} — ${d.dow}, ${d.label}</option>`).join('');
+  $('#cabinDay').value = cabin.day;
+  $('#cabinTitle').textContent = swapKey ? 'Cook at the cabin instead' : 'Add cabin time';
+  $('#cabinSwapNote').hidden = !swapKey;
+  renderCabinOptions();
+  const dlg = $('#cabinDlg');
+  dlg.showModal ? dlg.showModal() : dlg.setAttribute('open', '');
+}
+
+function renderCabinOptions() {
+  $$('#cabinTabs [data-tab]').forEach(b => { const on = b.dataset.tab === cabin.tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+  const isMeal = cabin.tab === 'meal';
+  const mt = $('#cabinMealTypes');
+  mt.hidden = !isMeal;
+  if (isMeal) chips(mt, MEAL_TYPES, cabin.meal, k => { cabin.meal = k; renderCabinOptions(); });
+  if (isMeal) requestAnimationFrame(() => { const on = mt.querySelector('.on'); if (on) mt.scrollLeft = on.offsetLeft - (mt.clientWidth - on.offsetWidth) / 2; });
+  const list = isMeal ? CABIN_MEALS.filter(m => cabin.meal === 'all' || m.meal === cabin.meal) : DOWNTIME;
+  $('#cabinOptions').innerHTML = list.map((o, i) => `<label class="cabin-opt">
+      <input type="radio" name="cabinPick" value="${o.id}" ${i === 0 ? 'checked' : ''} data-time="${esc(o.time)}">
+      ${photo(o.img, o.name, 'thumb')}
+      <span><b>${esc(o.name)}</b><small>${esc(o.duration)}${o.prep ? ` · prep ${esc(o.prep)}` : ''}${o.atCabin === false ? ' · off-site' : ''}</small><em>${esc(o.desc)}</em></span>
+    </label>`).join('');
+  $('#cabinTime').value = cabin.time || list[0]?.time || '';
+  $('#cabinOptions').onchange = e => { if (!cabin.time && e.target.dataset.time) $('#cabinTime').value = e.target.dataset.time; };
+}
+
+function cabinGroceries() {
+  // every cabin meal / downtime item added to any day, with what to buy or bring
+  const meals = [], bring = new Map();
+  DAYS.forEach(d => added.forDay(d.n).forEach(a => {
+    const p = ALL.get(a.id);
+    if (!p?.atCabin && p?.kind !== 'downtime') return;
+    if (p.kind === 'meal') meals.push({ day: d.n, p });
+    (p.bring || []).forEach(b => bring.set(b, (bring.get(b) || 0) + 1));
+  }));
+  const items = new Map();
+  meals.forEach(({ p }) => p.groceries.forEach(g => items.set(g, (items.get(g) || 0) + 1)));
+  return { meals, items: [...items], bring: [...bring] };
 }
 
 /* ───────────── what's nearby ───────────── */
@@ -1110,6 +1220,23 @@ function bindGlobal() {
     if (document.body.dataset.view === 'itinerary') renderItinerary(day);
     renderDashboard();
     addTarget = null;
+  });
+  $('#cabinTabs').onclick = e => {
+    const b = e.target.closest('[data-tab]');
+    if (b) { cabin.tab = b.dataset.tab; cabin.time = ''; renderCabinOptions(); }
+  };
+  $('#cabinDlg').addEventListener('close', () => {
+    if ($('#cabinDlg').returnValue !== 'ok') return;
+    const pick = $('#cabinOptions input:checked');
+    if (!pick) return;
+    const day = Number($('#cabinDay').value);
+    added.add(day, pick.value, $('#cabinTime').value.trim() || pick.dataset.time);
+    if (cabin.swapKey) progress.set(cabin.swapKey, 'skip');
+    toast(cabin.swapKey ? 'Swapped — cooking at the cabin' : `Added to Day ${day}`);
+    save('day', day);
+    if (document.body.dataset.view === 'itinerary') renderItinerary(day);
+    if (document.body.dataset.view === 'info') renderInfo();
+    renderDashboard();
   });
   window.addEventListener('hashchange', route);
 }

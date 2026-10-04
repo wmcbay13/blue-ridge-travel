@@ -493,6 +493,7 @@ export const CATS = {
   orchard:   { label: 'Orchards & wine', color: '#b2452f', icon: 'apple' },
   town:      { label: 'Towns',       color: '#5d5a52', icon: 'pin' },
   event:     { label: 'Events',      color: '#e07b39', icon: 'calendar' },
+  cabin:     { label: 'Cabin time',  color: '#7a5c3e', icon: 'cabin', noMap: true },
 };
 
 export const EXPLORE_CATS = [

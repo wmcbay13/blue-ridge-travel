@@ -90,13 +90,17 @@ test('favorites: save, filter, add to a day, persist after reload', async ({ pag
   await page.goto('/#itinerary');
   await page.reload();
   await page.locator('[data-day="2"]').click();
-  await expect(page.locator('.added-h')).toBeVisible();
-  await expect(page.locator('.timeline').last()).toContainText('Grumpy Old Men Brewing');
-  await expect(page.locator('.timeline').last()).toContainText('4:00 PM');
+  const addedCard = page.locator('.act.is-added');
+  await expect(addedCard).toHaveCount(1);
+  await expect(addedCard).toContainText('Grumpy Old Men Brewing');
+  await expect(addedCard.locator('.act-time')).toHaveText('4:00 PM');
+  // merged into the day in time order: right after the 3:30 PM Mercier stop
+  const times = await page.locator('.timeline .act-time').allTextContents();
+  expect(times.indexOf('4:00 PM')).toBe(times.indexOf('3:30 PM') + 1);
   await expect(page.locator('#favCount')).toHaveText('2');
 
   await page.locator('[data-remove="2:0"]').click();
-  await expect(page.locator('.added-h')).toHaveCount(0);
+  await expect(page.locator('.act.is-added')).toHaveCount(0);
 });
 
 test('explore, eat and events filters', async ({ page }) => {
@@ -348,5 +352,74 @@ test.describe('trip pulse', () => {
     await page.goto('/?now=2026-10-11T18:10');
     await expect(page.locator('.pulse-eyebrow')).toHaveText(/Day 4 — Sunday/i);
     await expect(page.locator('.pulse-next')).toContainText('Sunset drinks on The Lookout rooftop');
+  });
+});
+
+test.describe('cabin time', () => {
+  test('add downtime and a cabin meal; they land in time order', async ({ page }) => {
+    await page.goto('/#itinerary');
+    await page.locator('[data-day="2"]').click();
+    const before = await page.locator('.timeline .act').count();
+
+    await page.locator('[data-cabin="downtime"]').click();
+    await expect(page.locator('#cabinOptions .cabin-opt')).toHaveCount(10);
+    await page.locator('.cabin-opt', { hasText: 'Board games & cards' }).click();
+    await expect(page.locator('#cabinTime')).toHaveValue('8:00 PM');
+    await page.locator('#cabinOk').click();
+
+    await page.locator('[data-cabin="meal"]').click();
+    await page.locator('#cabinMealTypes [data-k="lunch"]').click();
+    await expect(page.locator('#cabinOptions .cabin-opt')).toHaveCount(2);
+    await page.locator('.cabin-opt', { hasText: 'Packed trail lunch' }).click();
+    await page.locator('#cabinTime').fill('11:45 AM');
+    await page.locator('#cabinOk').click();
+
+    await expect(page.locator('.timeline .act')).toHaveCount(before + 2);
+    const titles = await page.locator('.timeline .act h3').allTextContents();
+    expect(titles.indexOf('Packed trail lunch')).toBe(titles.indexOf('Toccoa River Swinging Bridge') + 1);
+    const games = page.locator('.act.is-cabin', { hasText: 'Board games & cards' });
+    await expect(games.locator('.pill-added')).toHaveText('Downtime');
+    await expect(games).toContainText('At Our cabin');
+    await expect(games.getByRole('link', { name: 'Directions' })).toHaveCount(0); // no home base set
+    await expect(page.locator('.day-progress h4')).toContainText(`of ${before + 2} activities`);
+  });
+
+  test('swap a restaurant for a cabin meal and build the grocery list', async ({ page }) => {
+    await page.goto('/#itinerary');
+    await page.locator('[data-day="2"]').click();
+    const dinner = page.locator('.act', { hasText: 'Dinner at Black Sheep' });
+    await dinner.locator('[data-swap]').click();
+    await expect(page.locator('#cabinTitle')).toHaveText('Cook at the cabin instead');
+    await expect(page.locator('#cabinMealTypes .chip.on')).toHaveText('Dinner');
+    await expect(page.locator('#cabinTime')).toHaveValue('6:00 PM');
+    await page.locator('.cabin-opt', { hasText: 'Big pot of chili' }).click();
+    await expect(page.locator('#cabinTime')).toHaveValue('6:00 PM'); // keeps the original slot
+    await page.locator('#cabinOk').click();
+
+    await expect(page.locator('.act.is-skip', { hasText: 'Dinner at Black Sheep' })).toHaveCount(1);
+    const chili = page.locator('.act.is-cabin', { hasText: 'Big pot of chili' });
+    await expect(chili.locator('.act-time')).toHaveText('6:00 PM');
+    await expect(chili.locator('.pill-added')).toHaveText('Cabin meal');
+    await expect(chili).toContainText('Ground beef');
+
+    await page.goto('/#info');
+    const g = page.locator('#groceries');
+    await expect(g).toContainText('Day 2 Big pot of chili');
+    await expect(g.locator('[data-grocery="Ground beef"]')).toBeVisible();
+    await g.locator('[data-grocery="Ground beef"]').check();
+    await page.reload();
+    await expect(page.locator('[data-grocery="Ground beef"]')).toBeChecked();
+  });
+
+  test('the pulse treats cabin items as at the cabin', async ({ page }) => {
+    await page.clock.install({ time: new Date('2026-10-09T14:50:00-04:00') });
+    await page.goto('/#itinerary');
+    await page.locator('[data-day="2"]').click();
+    await page.locator('[data-cabin="downtime"]').click();
+    await page.locator('.cabin-opt', { hasText: 'Hammock time' }).click();
+    await page.locator('#cabinOk').click();
+    await page.goto('/#home');
+    await expect(page.locator('.pulse-next')).toContainText('Hammock time / afternoon nap');
+    await expect(page.locator('.pulse')).toContainText('At the cabin');
   });
 });

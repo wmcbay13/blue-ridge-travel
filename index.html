@@ -193,6 +193,28 @@
     </form>
   </dialog>
 
+  <!-- cabin time picker -->
+  <dialog id="cabinDlg" class="dlg dlg-wide">
+    <form method="dialog">
+      <h3 id="cabinTitle">Add cabin time</h3>
+      <p class="small muted" id="cabinSwapNote" hidden>The restaurant stop will be marked <b>Skipped</b> and this meal added in its place. Undo any time from the itinerary.</p>
+      <div class="seg" id="cabinTabs" role="tablist">
+        <button type="button" role="tab" data-tab="downtime">Downtime</button>
+        <button type="button" role="tab" data-tab="meal">Cabin meals</button>
+      </div>
+      <div class="chips" id="cabinMealTypes" hidden></div>
+      <div class="cabin-options" id="cabinOptions" role="radiogroup" aria-label="Choose an option"></div>
+      <div class="row2">
+        <label>Day <select id="cabinDay"></select></label>
+        <label>Time <input id="cabinTime" type="text" maxlength="20" placeholder="e.g. 6:30 PM"></label>
+      </div>
+      <menu>
+        <button value="cancel" class="btn btn-ghost-dark">Cancel</button>
+        <button value="ok" class="btn btn-amber" id="cabinOk">Add to day</button>
+      </menu>
+    </form>
+  </dialog>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
