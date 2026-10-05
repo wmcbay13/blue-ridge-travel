@@ -226,5 +226,23 @@
   "artist": "Jack Oughton",
   "license": "CC BY-SA 3.0",
   "page": "https://commons.wikimedia.org/wiki/File:Blue_Ribeye_Steak_Hilton_London_Syon_Park_(55777006).jpeg"
+ },
+ "ellijay": {
+  "file": "Ellijay.jpg",
+  "artist": "Tamparitus",
+  "license": "CC BY-SA 4.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Ellijay.jpg"
+ },
+ "carters": {
+  "file": "Carters Lake - panoramio.jpg",
+  "artist": "Thomson M",
+  "license": "CC BY 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Carters_Lake_-_panoramio.jpg"
+ },
+ "friedpie": {
+  "file": "Fried apple pies from the John C. Campbell Folk School, Brasstown, NC.jpg",
+  "artist": "Basilwhite",
+  "license": "CC BY-SA 3.0",
+  "page": "https://commons.wikimedia.org/wiki/File:Fried_apple_pies_from_the_John_C._Campbell_Folk_School,_Brasstown,_NC.jpg"
  }
 }

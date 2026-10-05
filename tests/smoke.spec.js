@@ -128,7 +128,7 @@ test('map: markers, category toggle and popup', async ({ page }) => {
   await page.waitForFunction(() => document.querySelectorAll('.leaflet-marker-icon').length > 20);
   const before = await page.locator('.leaflet-marker-icon').count();
   await page.locator('#mapChips [data-k="brewery"]').click();
-  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(before - 5);
+  await expect(page.locator('.leaflet-marker-icon')).toHaveCount(before - 7);
   await page.locator('.leaflet-marker-icon[title="Harvest on Main"]').dispatchEvent('click');
   await expect(page.locator('.leaflet-popup .pop')).toContainText('Directions');
 });
@@ -242,7 +242,7 @@ test.describe('what\'s nearby', () => {
 
     await page.locator('#nearCats [data-k="brewery"]').click();
     const names = await page.locator('.near-row h3').allTextContents();
-    expect(names.length).toBe(5);
+    expect(names.length).toBe(7);
     expect(names.slice(0, 2).sort()).toEqual(['Buck Bald Brewing', 'Copperhill Brewery (Riverside Taproom)']);
 
     // A walkable result gets walking directions from the current location
@@ -422,4 +422,28 @@ test.describe('cabin time', () => {
     await expect(page.locator('.pulse-next')).toContainText('Hammock time / afternoon nap');
     await expect(page.locator('.pulse')).toContainText('At the cabin');
   });
+});
+
+test('Ellijay gems: BJ Reece and friends in Explore, Eat and Breweries', async ({ page }) => {
+  await page.goto('/#explore');
+  await page.locator('#exploreChips [data-k="ellijay"]').click();
+  const names = await page.locator('#explore .card h3').allTextContents();
+  for (const n of ['BJ Reece Orchards & Farm Market', 'Tumbling Waters Nature Trail (Carters Lake)', 'Panorama Orchards & Farm Market', 'Reece’s Cider Co.', 'The Pink Pig (Cherry Log)', 'Hillcrest Orchards — Apple Pickin’ Jubilee']) {
+    expect(names).toContain(n);
+  }
+  const bj = page.locator('.card[data-id="bj-reece"]');
+  await expect(bj.locator('.dont-miss')).toBeVisible();
+  await expect(bj).toContainText('Mon–Sat 9 AM – 6 PM');
+  await expect(bj.getByRole('link', { name: 'Website' })).toHaveAttribute('href', 'https://reeceorchards.com/');
+
+  // "All" stays things-to-do only
+  await page.locator('#exploreChips [data-k="all"]').click();
+  await expect(page.locator('#explore .card[data-id="the-roof"]')).toHaveCount(0);
+  await expect(page.locator('#explore .card[data-id="bj-reece"]')).toHaveCount(1);
+
+  await page.goto('/#eat');
+  await page.locator('#eatChips [data-k="dessert"]').click();
+  await expect(page.locator('#eat .card[data-id="bj-reece"]')).toHaveCount(1);
+  await page.goto('/#breweries');
+  await expect(page.locator('.card[data-id="reeces-cider"]')).toHaveCount(1);
 });
