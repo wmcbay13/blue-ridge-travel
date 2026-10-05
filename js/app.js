@@ -98,7 +98,7 @@ function photo(key, alt, cls = '') {
 }
 
 function fact(ic, label, val) {
-  if (!val) return '';
+  if (!val || val === '—') return '';
   return `<div class="fact">${icon(ic)}<span><small>${label}</small>${esc(val)}</span></div>`;
 }
 
@@ -643,7 +643,8 @@ function renderDashboard() {
 function renderExplore(cat = load('exploreCat', 'all')) {
   save('exploreCat', cat);
   const el = $('#explore');
-  const list = PLACES.filter(p => p.explore && (cat === 'all' || p.explore.includes(cat)));
+  // "All" is things to do; restaurants/breweries only show up under a specific chip (e.g. Ellijay Gems)
+  const list = PLACES.filter(p => p.explore && (cat === 'all' ? !['eat', 'brewery'].includes(p.cat) : p.explore.includes(cat)));
   el.innerHTML = `<div class="chips" id="exploreChips"></div>
     <div class="grid">${list.map(placeCard).join('')}</div>`;
   chips($('#exploreChips'), [['all', 'All'], ...EXPLORE_CATS], cat, k => renderExplore(k));

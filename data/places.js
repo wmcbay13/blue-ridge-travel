@@ -258,7 +258,7 @@ export const PLACES = [
   },
   {
     id: 'hillcrest', name: 'Hillcrest Orchards — Apple Pickin’ Jubilee', cat: 'orchard',
-    tags: ['outdoor', 'food', 'events'], explore: ['orchards'],
+    tags: ['outdoor', 'food', 'events'], explore: ['orchards', 'ellijay'],
     img: 'orchard', lat: 34.61938, lng: -84.37387, addr: '9696 Hwy 52 E, Ellijay, GA 30536',
     desc: 'U-pick apples plus a weekend farm festival: pig races, petting farm, wagon rides, apple maze, cider donuts and fritters.',
     why: 'Classic North Georgia apple-country day; weekdays are much cheaper.',
@@ -268,7 +268,7 @@ export const PLACES = [
   },
   {
     id: 'cartecay', name: 'Cartecay Vineyards', cat: 'orchard',
-    tags: ['relaxing', 'scenic', 'rainy'], explore: ['orchards', 'relaxing', 'rainy'],
+    tags: ['relaxing', 'scenic', 'rainy'], explore: ['orchards', 'relaxing', 'rainy', 'ellijay'],
     img: 'fall2', lat: 34.61485, lng: -84.38995, addr: '5704 Clear Creek Rd, Ellijay, GA 30536',
     desc: 'Hillside vineyard with a tasting room and covered porch overlooking the vines.',
     why: 'A mellow afternoon of wine and mountain views — porch works rain or shine.',
@@ -278,13 +278,80 @@ export const PLACES = [
   },
   {
     id: 'meichtry', name: 'Chateau Meichtry Family Vineyard', cat: 'orchard',
-    tags: ['relaxing', 'scenic', 'rainy'], explore: ['orchards', 'relaxing', 'rainy'],
+    tags: ['relaxing', 'scenic', 'rainy'], explore: ['orchards', 'relaxing', 'rainy', 'ellijay'],
     img: 'fall1', lat: 34.58775, lng: -84.43427, addr: '1862 Orchard Ln, Talking Rock, GA 30175',
     desc: 'Family-run winery with a cozy tasting room and wide terrace views south of Ellijay.',
     why: 'Pair with the Georgia Apple Festival for an Ellijay day.',
     difficulty: '—', distance: '—', duration: '1–1.5 hr', drive: 45, cost: 'Tasting fee varies',
     parking: 'Free lot', hours: 'Mon–Sat 11 AM – 6 PM; Sun 12:30 – 5:30 PM', reservation: 'None for small groups',
     url: 'https://www.chateaumeichtry.co/', verify: 'Tasting price',
+  },
+
+  // ───────────── Ellijay gems (≈35–45 min south) ─────────────
+  {
+    id: 'bj-reece', name: 'BJ Reece Orchards & Farm Market', cat: 'orchard',
+    tags: ['outdoor', 'food', 'events'], explore: ['orchards', 'ellijay', 'outdoor'],
+    img: 'orchard', lat: 34.62417, lng: -84.38054, addr: '9131 Highway 52 East, Ellijay, GA 30536',
+    desc: 'Family orchard on Ellijay’s “apple row” with U-pick apples and a full farm-fun lineup: pony rides, petting zoo, apple cannons, pig races, cow milking, wagon rides, a corn-maze scavenger hunt and a giant farm slide. The market sells “world famous” fried pies, apple cider donuts and Georgia Grown produce.',
+    why: 'One of the most-loved Ellijay orchards — grab a fried pie, fire an apple cannon, then walk across the street to Reece’s Cider Co.',
+    difficulty: '—', distance: '—', duration: '2–3 hr', drive: 40,
+    cost: 'Farm Fun $8 weekdays · $13 / $18 / $26 weekends (2 & under free; picking included) · U-pick bags $12 ½-peck – $48 ½-bushel',
+    parking: 'Free lot (busy on festival weekends)', hours: 'Mon–Sat 9 AM – 6 PM · Sun 1 – 6 PM (last U-pick tickets 5 PM)',
+    reservation: 'None', url: 'https://reeceorchards.com/', verify: false, dontMiss: true,
+    cuisine: 'Farm market bakery', price: '$', dishes: ['“World famous” fried pies', 'Apple cider donuts', 'Fresh-picked apples'],
+    meals: ['dessert'],
+  },
+  {
+    id: 'panorama', name: 'Panorama Orchards & Farm Market', cat: 'orchard',
+    tags: ['food', 'shopping', 'rainy'], explore: ['orchards', 'ellijay', 'rainy'],
+    img: 'friedpie', lat: 34.64059, lng: -84.49688, addr: '63 Talona Spur Rd, Ellijay, GA 30536',
+    desc: 'Orchard family since the 1920s, right off GA-515 at the south edge of Ellijay. The market stocks 20+ apple varieties, jams, ciders and fried pies made fresh and served hot.',
+    why: 'Easy, quick stop (no admission) with what many reviewers call the best fried pies in Ellijay.',
+    difficulty: '—', distance: '—', duration: '30–45 min', drive: 40, cost: 'Free entry', parking: 'Free lot',
+    hours: 'Daily 9 AM – 6 PM', reservation: 'None', url: 'https://exploregeorgia.org/ellijay/agritourism/farmers-markets/panorama-orchards-and-farm-market',
+    verify: 'Hours (listed daily 9–6)',
+    cuisine: 'Farm market bakery', price: '$', dishes: ['Hot fried apple pies', 'Apple butter', 'Cider'], meals: ['dessert'],
+  },
+  {
+    id: 'ra-orchards', name: 'R&A Orchards', cat: 'orchard',
+    tags: ['food', 'shopping'], explore: ['orchards', 'ellijay'],
+    img: 'dessert', lat: 34.65234, lng: -84.42111, addr: '5505 Highway 52 East, Ellijay, GA 30536',
+    desc: 'Family orchard since 1983 (60+ acres) with a roadside market where locals stop for coffee and warm apple cider donuts.',
+    why: 'The first orchard stand you reach heading out GA-52 — perfect breakfast-treat stop on the way to BJ Reece and Hillcrest.',
+    difficulty: '—', distance: '—', duration: '20–40 min', drive: 38, cost: 'Free entry', parking: 'Free lot',
+    hours: 'Daily 9 AM – 6 PM', reservation: 'None', url: 'https://georgiagrown.com/member/r-and-a-orchards/',
+    verify: 'Hours',
+    cuisine: 'Orchard market & bakery', price: '$', dishes: ['Apple cider donuts', 'Fried pies', 'Coffee'], meals: ['breakfast', 'coffee', 'dessert'],
+  },
+  {
+    id: 'tumbling-waters', name: 'Tumbling Waters Nature Trail (Carters Lake)', cat: 'waterfall',
+    tags: ['outdoor', 'scenic'], explore: ['hiking', 'waterfalls', 'ellijay'],
+    img: 'carters', lat: 34.613, lng: -84.605, addr: 'Tumbling Waters Nature Trail, Ridgeway Recreation Area, Ellijay, GA',
+    desc: 'A short National Recreation Trail through a steep, mossy gorge to two viewing platforms above a sheer cliff where Trail Creek cascades into Carters Lake.',
+    why: 'True hidden gem: big payoff for a 25-minute walk. Pair with the overlooks at Carters Dam — the tallest earthen dam east of the Mississippi.',
+    difficulty: 'Easy–moderate (~100 ft gain)', distance: '~1 mi round trip', duration: '30–45 min', drive: 60,
+    cost: 'Free (verify USACE day-use fee)', parking: 'Ridgeway Recreation Area lot (south shore, off GA-382)',
+    hours: 'Daylight', reservation: 'None', url: 'https://www.gilmerchamber.com/blog/explore-the-ellijays/best-hikes-in-ellijay-ga-tumbling-waters-trail/',
+    verify: 'Ridgeway access & any Corps of Engineers day-use fee; ~1 hr from Blue Ridge',
+  },
+  {
+    id: 'downtown-ellijay', name: 'Downtown Ellijay Square & River Street', cat: 'town',
+    tags: ['shopping', 'food', 'relaxing', 'rainy'], explore: ['downtown', 'historic', 'ellijay'],
+    img: 'ellijay', lat: 34.6948, lng: -84.4825, addr: 'N Main St & River St, Ellijay, GA 30540',
+    desc: 'Georgia’s Apple Capital has a walkable historic square with boutiques, antiques and cafés, plus River Street’s restaurants and rooftop dining. Home of the free Apple Arts Festival on Oct 10–11.',
+    why: 'Smaller and quieter than downtown Blue Ridge — a good lunch-and-stroll anchor for an Ellijay orchard day.',
+    difficulty: 'Easy walking', distance: '—', duration: '1–2 hr', drive: 35, cost: 'Free', parking: 'Free street parking & public lots',
+    hours: 'Shops ~10 AM – 5 PM', reservation: 'None', url: 'https://downtownellijay.com/', verify: false,
+  },
+  {
+    id: 'mountain-treasures', name: 'Mountain Treasures (wine & moonshine tastings)', cat: 'shopping',
+    tags: ['shopping', 'relaxing', 'rainy'], explore: ['downtown', 'ellijay', 'rainy'],
+    img: 'downtown3', lat: 34.69469, lng: -84.48257, addr: '14 N Main St, Ellijay, GA 30540',
+    desc: 'Looks like an ordinary gift shop on the square — but in the back is a wine shop with complimentary tastings of local wines, flavored moonshines and wine slushies.',
+    why: 'The kind of local secret you only hear about from people who live there.',
+    difficulty: '—', distance: '—', duration: '30 min', drive: 35, cost: 'Free tastings', parking: 'Downtown street parking',
+    hours: 'Verify', reservation: 'None', url: 'https://downtownellijay.com/?vendor-listings=mountain-treasures',
+    verify: 'Hours; tastings 21+',
   },
 
   // ───────────── Eat & Drink ─────────────
@@ -432,6 +499,27 @@ export const PLACES = [
     url: 'https://thesweetsouth.com/', drive: 0, verify: 'Hours',
   },
 
+  {
+    id: 'the-roof', name: 'The Roof (Ellijay)', cat: 'eat',
+    tags: ['food', 'scenic'], img: 'ellijay', lat: 34.69466, lng: -84.48232, addr: '16 River St, Ellijay, GA 30540',
+    explore: ['ellijay'],
+    cuisine: 'New Southern · rooftop', price: '$$–$$$', meals: ['lunch', 'casual', 'southern', 'date'],
+    desc: 'Rooftop restaurant and bar above historic downtown Ellijay with mountain views, Appalachian-inspired farm-to-table plates and craft cocktails.',
+    dishes: ['Seasonal Southern plates', 'Craft cocktails', 'Rooftop views'],
+    hours: 'Wed–Thu 11:30–9 · Fri–Sat 11:30–9:30 · Sun 12–9 · Mon–Tue closed', reservation: 'Walk-ins only · (706) 635-7663',
+    url: 'https://www.theroofellijay.com/', drive: 35, verify: false,
+  },
+  {
+    id: 'pink-pig', name: 'The Pink Pig (Cherry Log)', cat: 'eat',
+    tags: ['food'], img: 'bbq', lat: 34.78829, lng: -84.38436, addr: '824 Cherry Log St, Cherry Log, GA 30522',
+    explore: ['ellijay'],
+    cuisine: 'Pit-cooked BBQ', price: '$–$$', meals: ['lunch', 'casual', 'bbq', 'southern'],
+    desc: 'Family-owned roadside BBQ joint in tiny Cherry Log, between Blue Ridge and Ellijay, known for pit-cooked barbecue and homemade Brunswick stew.',
+    dishes: ['Pit-cooked pork plate', 'Brunswick stew', 'Ribs'],
+    hours: 'Thu–Sat 11 AM – 8 PM · Sun–Wed closed', reservation: 'Walk-in · (706) 632-2403',
+    url: 'https://www.pinkpigcherrylog.com/', drive: 15, verify: false,
+  },
+
   // ───────────── Breweries & taprooms ─────────────
   {
     id: 'grumpy-old-men', name: 'Grumpy Old Men Brewing', cat: 'brewery',
@@ -478,6 +566,26 @@ export const PLACES = [
     music: 'Regular events (Facebook)', dishes: ['German-style lager', 'Hazy IPA'],
     hours: 'Daily 12–8', reservation: 'None', drive: 25, url: 'https://buckbaldbrewing.com/', verify: false,
   },
+
+  {
+    id: 'reeces-cider', name: 'Reece’s Cider Co.', cat: 'brewery',
+    tags: ['brewery', 'relaxing'], img: 'beerflight', lat: 34.6247, lng: -84.3800, addr: '9110 Georgia Hwy 52, Ellijay, GA 30536',
+    explore: ['ellijay', 'orchards'],
+    desc: 'Hard ciders made on site from the Reece family’s apples, across the highway from BJ Reece Orchards.',
+    styles: 'Eight hard apple ciders, from dry to fruit-forward', food: 'Food vendors Fri–Sun', outdoor: 'Verify', music: 'Verify',
+    dishes: ['Cider flight'], hours: 'Mon–Thu 11–6 · Fri–Sat 11–7 · Sun 1–6', reservation: 'None', drive: 40,
+    url: 'https://reecescidercompany.com/', verify: 'Outdoor seating & music',
+  },
+  {
+    id: 'cartecay-brewing', name: 'Cartecay River Brewing Co.', cat: 'brewery',
+    tags: ['brewery', 'food'], img: 'taproom', lat: 34.6853, lng: -84.4716, addr: '26 River Terrace #1A, East Ellijay, GA 30540',
+    explore: ['ellijay'],
+    desc: 'Ellijay’s 10-barrel craft brewery near the Cartecay River, now a full brewpub with pub food and cocktails.',
+    styles: 'House craft beers + specialty cocktails', food: 'Yes — pub food kitchen', outdoor: 'Yes — dog-friendly',
+    music: 'Live music, DJs & karaoke (check schedule)', dishes: ['House flight', 'Pub food'],
+    hours: 'Mon–Thu 12–8 · Fri–Sat 12–9 · Sun 12:30–7', reservation: 'None · (706) 273-2728', drive: 35,
+    url: 'https://www.cartecayriverbrewing.com/', verify: false,
+  },
 ];
 
 // Map/marker presentation per category
@@ -499,7 +607,7 @@ export const CATS = {
 export const EXPLORE_CATS = [
   ['hiking', 'Hiking'], ['waterfalls', 'Waterfalls'], ['scenic', 'Scenic Drives & Views'], ['outdoor', 'Outdoor Adventures'],
   ['downtown', 'Downtown & Shopping'], ['historic', 'Historic Sites'], ['orchards', 'Orchards & Farms'],
-  ['relaxing', 'Relaxing'], ['rainy', 'Rainy Day'],
+  ['relaxing', 'Relaxing'], ['rainy', 'Rainy Day'], ['ellijay', 'Ellijay Gems'],
 ];
 
 export const MEAL_CATS = [
